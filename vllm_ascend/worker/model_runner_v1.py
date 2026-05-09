@@ -1733,7 +1733,6 @@ class NPUModelRunner(GPUModelRunner):
                             dp_metadata_list,
                             is_warmup=self._is_warmup,
                         )
-                    dist.barrier(group=get_dp_group().cpu_group)
                 hidden_states = self._generate_process_reqs_hidden_states(
                     maybe_padded_num_tokens, input_ids, positions,
                     intermediate_tensors, inputs_embeds, model_kwargs)
@@ -2578,13 +2577,18 @@ class NPUModelRunner(GPUModelRunner):
                         hidden_states[dummy_indices])
             logger.info(f'num_tokens is {num_tokens_padded},num_tokens_across_dp is {num_tokens_across_dp}')
             afd_metadata = self._build_afd_metadata(ubatch_slices, num_tokens_padded)
+            afd_num_actual_tokens_wire = int(num_scheduled_tokens.sum())
+            if afd_num_actual_tokens_wire <= 0:
+                afd_num_actual_tokens_wire = num_tokens_padded
+            if afd_num_actual_tokens_wire > num_tokens_padded:
+                afd_num_actual_tokens_wire = num_tokens_padded
             with set_ascend_forward_context(
                     attn_metadata,
                     self.vllm_config,
                     num_tokens=num_tokens_padded,
                     num_tokens_across_dp=num_tokens_across_dp,
                     in_profile_run=is_profile,
-                    num_actual_tokens=0,
+                    num_actual_tokens=afd_num_actual_tokens_wire,
                     aclgraph_runtime_mode=cudagraph_runtime_mode,
                     batch_descriptor=batch_descriptor,
                     model_instance=self.model,
@@ -2606,7 +2610,6 @@ class NPUModelRunner(GPUModelRunner):
                             is_graph_capturing=is_graph_capturing,
                             is_warmup=self._is_warmup,
                         )
-                    dist.barrier(group=get_dp_group().cpu_group)
 
                 hidden_states = self._generate_dummy_run_hidden_states(
                     input_ids, positions, num_tokens_padded,

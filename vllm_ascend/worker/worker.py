@@ -35,7 +35,8 @@ from vllm.distributed.ec_transfer import ensure_ec_transfer_initialized
 from vllm.distributed.kv_transfer import (ensure_kv_transfer_initialized,
                                           get_kv_transfer_group,
                                           has_kv_transfer_group)
-from vllm.distributed.parallel_state import get_pp_group, get_tp_group, get_world_group
+from vllm.distributed.parallel_state import (get_pp_group,
+                                             get_tp_group, get_world_group)
 from vllm.logger import logger
 from vllm.lora.request import LoRARequest
 from vllm.sequence import IntermediateTensors
@@ -293,23 +294,35 @@ class NPUWorker(WorkerBase):
                         dp_metadata_list,
                         is_attn_graph_capturing,
                         is_warmup,
+                        afd_num_actual_tokens,
+                        attn_aclgraph_runtime_mode,
                     ) = self.model_runner.connector.recv_dp_metadata_list()
-                    print(f"jcz dp_metadata_list:{dp_metadata_list} is_attn_graph_capturing:{is_attn_graph_capturing} is_warmup:{is_warmup}")
+                    try:
+                        logger.debug(
+                            "dp_metadata received is_graph_capturing=%s is_warmup=%s",
+                            is_attn_graph_capturing,
+                            is_warmup,
+                        )
+                    except Exception:
+                        pass
                     if is_attn_graph_capturing or (is_warmup and not self.model_config.enforce_eager):
                         # Capture模式：根据metadata执行warmup或capture
                         self.model_runner.capture_model(
                             dp_metadata_list=dp_metadata_list,
                             is_warmup=is_warmup,
                             is_attn_graph_capturing=is_attn_graph_capturing,
+                            afd_num_actual_tokens=afd_num_actual_tokens,
+                            attn_aclgraph_runtime_mode=attn_aclgraph_runtime_mode,
                         )
                     else:
                         # 正常推理
                         self.model_runner.execute_model(
                             scheduler_output=None,
                             dp_metadata_list=dp_metadata_list,
+                            afd_num_actual_tokens=afd_num_actual_tokens,
+                            attn_aclgraph_runtime_mode=attn_aclgraph_runtime_mode,
                         )
 
-                    torch.npu.synchronize()
             except Exception as e:
                 logger.error("FFN worker loop error: %s", e)
                 raise

@@ -20,13 +20,17 @@ import torch
 import torch_npu
 from torch.nn.functional import pad
 from vllm.forward_context import get_forward_context
+from vllm.logger import init_logger
 from vllm.triton_utils import HAS_TRITON
 
 from vllm_ascend.ascend_forward_context import MoECommType
+import vllm_ascend.envs as envs_ascend
 from vllm_ascend.utils import (AscendDeviceType, dispose_tensor,
                                enable_custom_op, get_ascend_device_type,
                                get_weight_prefetch_method)
 
+
+logger = init_logger(__name__)
 
 
 def _custom_gmm_swiglu_enabled(fusion, dynamic_eplb):
@@ -438,6 +442,34 @@ def dispatch_experts(
         "tp_world_size": 1,
         "tp_rank_id": 0,
     }
+
+    if envs_ascend.VLLM_ASCEND_FFN_GRAPH_MTP_TRACE:
+        msum = None
+        if x_active_mask is not None:
+            try:
+                msum = int(x_active_mask.sum().detach().cpu().item())
+            except Exception:
+                msum = "<?>"
+        tmin = tmax = None
+        if topk_ids is not None and topk_ids.numel() > 0:
+            try:
+                tmin = int(topk_ids.min().detach().cpu().item())
+                tmax = int(topk_ids.max().detach().cpu().item())
+            except Exception:
+                tmin = tmax = None
+        logger.info(
+            "[FFN-GRAPH-MTP-TRACE] dispatch_experts: layer_idx=%s x=%s topk_ids=%s "
+            "ids_range=%s topk_w=%s x_active_mask_sum=%s ep=%s/%s moe_n=%s",
+            layer_idx,
+            tuple(hidden_states.shape),
+            tuple(topk_ids.shape) if topk_ids is not None else None,
+            (tmin, tmax),
+            tuple(topk_weights.shape) if topk_weights is not None else None,
+            msum,
+            ep_rank_id,
+            ep_rank_size,
+            moe_expert_num,
+        )
 
     dispatch_output = torch_npu.npu_moe_distribute_dispatch_v2(**dispatch_kwargs)
 

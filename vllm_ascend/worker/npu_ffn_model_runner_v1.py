@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from contextlib import contextmanager
 
 import torch
+import torch.distributed as dist
 import torch_npu
 import torch.nn as nn
 from tqdm import tqdm
@@ -15,8 +16,10 @@ from vllm.config import VllmConfig
 from vllm.distributed.afd_transfer.afd_connector.factory import (
     AFDConnectorFactory)
 from vllm.distributed.communication_op import tensor_model_parallel_all_gather
-from vllm.distributed.parallel_state import (get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size,
-                                             get_world_group,is_global_first_rank)
+from vllm.distributed.parallel_state import (get_dp_group, get_ep_group,
+                                             get_tensor_model_parallel_rank,
+                                             get_tensor_model_parallel_world_size,
+                                             get_world_group, is_global_first_rank)
 from vllm.forward_context import set_forward_context, BatchDescriptor, AFDMetadata
 from vllm.logger import init_logger
 from vllm.utils.mem_constants import GiB_bytes
@@ -42,6 +45,85 @@ if TYPE_CHECKING:
     from vllm.v1.kv_cache_interface import KVCacheConfig, KVCacheSpec
 
 logger = init_logger(__name__)
+
+
+def _ffn_graph_mtp_trace_enabled() -> bool:
+    return envs_ascend.VLLM_ASCEND_FFN_GRAPH_MTP_TRACE
+
+
+def _ffn_graph_replay_denied(dp_key: tuple) -> bool:
+    denied = envs_ascend.VLLM_ASCEND_FFN_GRAPH_REPLAY_DENYLIST
+    if not denied:
+        return False
+    return repr(dp_key) in denied
+
+
+def _log_ffn_post_recv_moe_sync_diag(
+    *,
+    logger,
+    layer_idx: int,
+    num_layers: int,
+    ubatch_idx: int,
+    dp_key: tuple,
+    hidden_states: torch.Tensor,
+    topk_ids: torch.Tensor | None,
+    x_active_mask: torch.Tensor | None,
+) -> None:
+    try:
+        ep_rank = get_ep_group().rank_in_group
+        ep_world = get_ep_group().world_size
+    except Exception:
+        ep_rank, ep_world = -1, -1
+    tmin = tmax = None
+    if topk_ids is not None and topk_ids.numel() > 0:
+        try:
+            tmin = int(topk_ids.min().detach().cpu().item())
+            tmax = int(topk_ids.max().detach().cpu().item())
+        except Exception as ex:
+            tmin = tmax = str(ex)
+    msum = mdtype = None
+    if x_active_mask is not None:
+        mdtype = str(x_active_mask.dtype)
+        try:
+            msum = int(x_active_mask.sum().detach().cpu().item())
+        except Exception as ex:
+            msum = str(ex)
+    tid_ptr = int(topk_ids.data_ptr()) if topk_ids is not None else 0
+    logger.info(
+        "[FFN-POST-RECV-SYNC-DIAG] layer=%s/%s ubatch=%s ep=%s/%s dp_key=%s "
+        "hid=%s topk_ids=%s dtype=%s ptr=0x%x post_sync_minmax=(%s,%s) "
+        "mask_sum=%s mask_dtype=%s",
+        layer_idx,
+        num_layers - 1,
+        ubatch_idx,
+        ep_rank,
+        ep_world,
+        dp_key,
+        tuple(hidden_states.shape),
+        tuple(topk_ids.shape) if topk_ids is not None else None,
+        str(topk_ids.dtype) if topk_ids is not None else None,
+        tid_ptr,
+        tmin,
+        tmax,
+        msum,
+        mdtype,
+    )
+
+
+def _summarize_dp_metadata_list(dp_metadata_list: dict | None) -> str:
+    if not dp_metadata_list:
+        return "{}"
+    parts = []
+    for k in sorted(dp_metadata_list.keys()):
+        m = dp_metadata_list[k]
+        try:
+            nta = m.num_tokens_across_dp_cpu.tolist()
+            mx = int(m.max_tokens_across_dp_cpu.item())
+        except Exception as ex:
+            parts.append(f"{k}:<err {ex}>")
+            continue
+        parts.append(f"{k}:nta={nta},max={mx}")
+    return "{" + "; ".join(parts) + "}"
 
 
 class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
@@ -75,6 +157,11 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         self.graph_pool = None
         if self.use_aclgraph:
             self.graph_pool = current_platform.get_global_graph_pool()
+
+        # True only while executing inside ``torch.npu.graph`` (capture). Used to
+        # avoid device sync / barriers that Ascend rejects with 107027
+        # ("stream is captured").
+        self._inside_ffn_npu_graph_capture = False
 
         assert self.afd_config.is_ffn_server
         self.connector = AFDConnectorFactory.create_connector(
@@ -162,7 +249,9 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         
     @torch.inference_mode()
     def execute_model(self, scheduler_output=None, intermediate_tensors=None,
-                     dp_metadata_list: dict | None = None):
+                     dp_metadata_list: dict | None = None,
+                     afd_num_actual_tokens: int | None = None,
+                     attn_aclgraph_runtime_mode: int | None = None):
         """Execute FFN computation for a single request
 
         Args:
@@ -177,14 +266,77 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
             is_ubatch = dp_metadata_list is not None and len(dp_metadata_list) > 1
 
             if self.use_aclgraph:
+                # 图是在 Attention FULL 下与 CAM/a2e 一起抓的；若本步 Attention 走
+                # eager (NONE) 或 PIECEWISE 而 FFN 仍 replay，极易 a2e 与 MoE 不同步
+                # → 损坏的 mask/topk → 507015。
+                replay_blocked_by_attn_mode = (
+                    attn_aclgraph_runtime_mode is not None
+                    and int(attn_aclgraph_runtime_mode)
+                    != int(CUDAGraphMode.FULL.value))
                 # 用 dp_metadata_key 查找 graph
-                dp_metadata_key = self._get_dp_metadata_key(dp_metadata_list)
+                dp_metadata_key = self._get_dp_metadata_key(
+                    dp_metadata_list, afd_num_actual_tokens)
                 acl_graph_info = self._acl_graphs.get(dp_metadata_key)
+                if _ffn_graph_mtp_trace_enabled():
+                    logger.info(
+                        "[FFN-GRAPH-MTP-TRACE] execute_model: dp_key=%s hit=%s "
+                        "num_stages=%s captured_keys=%s replay_cnt=%s "
+                        "attn_acl_mode=%s replay_blocked=%s",
+                        dp_metadata_key,
+                        acl_graph_info is not None,
+                        len(dp_metadata_list) if dp_metadata_list else 0,
+                        list(self._acl_graphs.keys()),
+                        self.replay_cnt,
+                        attn_aclgraph_runtime_mode,
+                        replay_blocked_by_attn_mode,
+                    )
                 if acl_graph_info is not None:
-                    graph = acl_graph_info['graph']
-                    graph.replay()
-                    self.replay_cnt += 1
-                    logger.debug(f"ffn replay, replay_cnt is {self.replay_cnt}, dp_metadata_key={dp_metadata_key}")
+                    if replay_blocked_by_attn_mode:
+                        logger.warning(
+                            "Skipping NPUGraph replay: Attention "
+                            "cudagraph_runtime_mode=%s (not FULL); running eager "
+                            "_ffn_forward for CAM/a2e alignment.",
+                            attn_aclgraph_runtime_mode,
+                        )
+                        self._ffn_forward(
+                            aclgraph_runtime_mode=CUDAGraphMode.NONE,
+                            dp_metadata_list=dp_metadata_list,
+                            afd_num_actual_tokens=afd_num_actual_tokens,
+                        )
+                    elif _ffn_graph_replay_denied(dp_metadata_key):
+                        logger.warning(
+                            "Skipping NPUGraph replay for dp_key=%s (listed in "
+                            "VLLM_ASCEND_FFN_GRAPH_REPLAY_DENYLIST); running eager "
+                            "_ffn_forward.",
+                            dp_metadata_key,
+                        )
+                        self._ffn_forward(
+                            aclgraph_runtime_mode=CUDAGraphMode.NONE,
+                            dp_metadata_list=dp_metadata_list,
+                            afd_num_actual_tokens=afd_num_actual_tokens,
+                        )
+                    else:
+                        if envs_ascend.VLLM_ASCEND_FFN_GRAPH_REPLAY_PRE_SYNC:
+                            torch.npu.current_stream().synchronize()
+                            logger.info(
+                                "[FFN-GRAPH] replay pre-sync OK dp_key=%s "
+                                "replay_cnt=%s",
+                                dp_metadata_key,
+                                self.replay_cnt,
+                            )
+                        graph = acl_graph_info['graph']
+                        with self._ffn_ascend_forward_ctx(
+                                dp_metadata_list,
+                                CUDAGraphMode.FULL,
+                                afd_num_actual_tokens,
+                        ):
+                            graph.replay()
+                        self.replay_cnt += 1
+                        logger.debug(
+                            "ffn replay, replay_cnt is %s, dp_metadata_key=%s",
+                            self.replay_cnt,
+                            dp_metadata_key,
+                        )
                 else:
                     # fallback to eager mode
                     logger.warning(
@@ -193,11 +345,19 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                         dp_metadata_key,
                         list(self._acl_graphs.keys()),
                     )
-                    self._ffn_forward(aclgraph_runtime_mode=CUDAGraphMode.NONE, dp_metadata_list=dp_metadata_list)
+                    self._ffn_forward(
+                        aclgraph_runtime_mode=CUDAGraphMode.NONE,
+                        dp_metadata_list=dp_metadata_list,
+                        afd_num_actual_tokens=afd_num_actual_tokens,
+                    )
             else:
                 # eager mode for non-ubatch or no aclgraph
                 logger.debug(f"ffn_forward, is_ubatch is {is_ubatch}")
-                self._ffn_forward(aclgraph_runtime_mode=CUDAGraphMode.NONE, dp_metadata_list=dp_metadata_list)
+                self._ffn_forward(
+                    aclgraph_runtime_mode=CUDAGraphMode.NONE,
+                    dp_metadata_list=dp_metadata_list,
+                    afd_num_actual_tokens=afd_num_actual_tokens,
+                )
 
         except Exception as e:
             raise ValueError(
@@ -208,7 +368,9 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
     def capture_model(self,
                       dp_metadata_list: Optional[dict] = None,
                       is_warmup: bool = False,
-                      is_attn_graph_capturing: bool = True) -> int:
+                      is_attn_graph_capturing: bool = True,
+                      afd_num_actual_tokens: int | None = None,
+                      attn_aclgraph_runtime_mode: int | None = None) -> int:
         """Capture ACL graphs for FFN operations.
 
         Args:
@@ -225,14 +387,22 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         start_free_npu_memory = torch.npu.mem_get_info()[0]
 
         set_cudagraph_capturing_enabled(True)
-        if is_warmup:
-            # Warmup模式：只执行forward，不capture graph
-            self._warmup_model(dp_metadata_list=dp_metadata_list)
-            logger.info("FFN warmup completed, dp_metadata_list=%s", dp_metadata_list)
-        else:
-            # 正式Capture模式：根据dp_metadata_list捕获单个graph
-            self._capture_model(dp_metadata_list=dp_metadata_list)
-        set_cudagraph_capturing_enabled(False)
+        try:
+            if is_warmup:
+                # Warmup模式：只执行forward，不capture graph
+                self._warmup_model(
+                    dp_metadata_list=dp_metadata_list,
+                    afd_num_actual_tokens=afd_num_actual_tokens,
+                )
+                logger.info("FFN warmup completed, dp_metadata_list=%s", dp_metadata_list)
+            else:
+                # 正式Capture模式：根据dp_metadata_list捕获单个graph
+                self._capture_model(
+                    dp_metadata_list=dp_metadata_list,
+                    afd_num_actual_tokens=afd_num_actual_tokens,
+                )
+        finally:
+            set_cudagraph_capturing_enabled(False)
 
         end_time = time.perf_counter()
         end_free_npu_memory = torch.npu.mem_get_info()[0]
@@ -244,28 +414,42 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
 
         return npu_graph_size
 
-    def _get_dp_metadata_key(self, dp_metadata_list: dict) -> tuple:
+    def _get_dp_metadata_key(
+        self,
+        dp_metadata_list: dict,
+        afd_num_actual_tokens: int | None = None,
+    ) -> tuple:
         """Extract a hashable key from dp_metadata_list for CUDA graph lookup.
 
         与 GPU 版本的 _make_graph_key 保持一致。
         The key is a tuple of (stage_idx, tuple(num_tokens_across_dp_cpu))
         for each stage, sorted by stage_idx.
 
+        When ``afd_num_actual_tokens`` is passed it is only used for tracing /
+        diagnostics; the NPUGraph pool key must stay **layout-only** (padded DP
+        token counts). Spec/MTP steps share the same padded shape and the same
+        captured graph; per-step validity comes from AFD ``x_active_mask`` inside
+        the captured recv+MoE region. Extending the key with an ``int`` caused
+        uncaptured keys at runtime → eager fallback or stale graph mismatches.
+
         Args:
             dp_metadata_list: {stage_idx: DPMetadata}
+            afd_num_actual_tokens: 本步真实 token 数（仅用于 TRACE/DENY 对比，不参与 key）
 
         Returns:
             tuple: ((stage_idx, tuple(num_tokens_across_dp_cpu)), ...)
         """
         if dp_metadata_list is None:
-            return ()
+            base: tuple = ()
+        else:
+            base = tuple(
+                (stage_idx, tuple(meta.num_tokens_across_dp_cpu.tolist()))
+                for stage_idx, meta in sorted(dp_metadata_list.items())
+            )
+        return base
 
-        return tuple(
-            (stage_idx, tuple(meta.num_tokens_across_dp_cpu.tolist()))
-            for stage_idx, meta in sorted(dp_metadata_list.items())
-        )
-
-    def _warmup_model(self, dp_metadata_list: dict = None) -> None:
+    def _warmup_model(self, dp_metadata_list: dict = None,
+                      afd_num_actual_tokens: int | None = None) -> None:
         """执行warmup，只运行forward不capture graph
 
         Args:
@@ -273,15 +457,18 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
             dp_metadata_list: 从Attention侧接收的dp_metadata列表
         """
         # Warmup只执行eager模式的forward，根据dp_metadata_list确定num_tokens
-        dp_metadata_key = self._get_dp_metadata_key(dp_metadata_list)
+        dp_metadata_key = self._get_dp_metadata_key(
+            dp_metadata_list, afd_num_actual_tokens)
 
         self._dummy_run(aclgraph_runtime_mode=CUDAGraphMode.NONE,
                         uniform_decode=True,
                         dp_metadata_list=dp_metadata_list,
-                        dp_metadata_key=dp_metadata_key)
+                        dp_metadata_key=dp_metadata_key,
+                        afd_num_actual_tokens=afd_num_actual_tokens)
         logger.debug("FFN warmup for dp_metadata_key=%s", dp_metadata_key)
 
-    def _capture_model(self, dp_metadata_list: dict = None):
+    def _capture_model(self, dp_metadata_list: dict = None,
+                       afd_num_actual_tokens: int | None = None):
         """内部capture实现 - 根据dp_metadata_list捕获单个graph
 
         Args:
@@ -293,7 +480,16 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
             return
 
         # 生成 dp_metadata key
-        dp_metadata_key = self._get_dp_metadata_key(dp_metadata_list)
+        dp_metadata_key = self._get_dp_metadata_key(
+            dp_metadata_list, afd_num_actual_tokens)
+        if _ffn_graph_mtp_trace_enabled():
+            logger.info(
+                "[FFN-GRAPH-MTP-TRACE] _capture_model: dp_key=%s dp_summary=%s "
+                "existing_graph_keys=%s",
+                dp_metadata_key,
+                _summarize_dp_metadata_list(dp_metadata_list),
+                list(self._acl_graphs.keys()),
+            )
 
         @contextmanager
         def freeze_gc():
@@ -315,14 +511,16 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                 cudagraph_runtime_mode=CUDAGraphMode.FULL,
                 uniform_decode=True,
                 dp_metadata_key=dp_metadata_key,
-                dp_metadata_list=dp_metadata_list
+                dp_metadata_list=dp_metadata_list,
+                afd_num_actual_tokens=afd_num_actual_tokens,
             )
 
     def _capture_single_aclgraph(self,
                                   cudagraph_runtime_mode: CUDAGraphMode,
                                   uniform_decode: bool,
                                   dp_metadata_key: tuple = None,
-                                  dp_metadata_list: dict = None):
+                                  dp_metadata_list: dict = None,
+                                  afd_num_actual_tokens: int | None = None):
         """捕获单个 ACL graph（无 warmup 循环）
 
         Args:
@@ -339,7 +537,8 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         self._dummy_run(aclgraph_runtime_mode=cudagraph_runtime_mode,
                         uniform_decode=uniform_decode,
                         dp_metadata_list=dp_metadata_list,
-                        dp_metadata_key=dp_metadata_key)
+                        dp_metadata_key=dp_metadata_key,
+                        afd_num_actual_tokens=afd_num_actual_tokens)
 
     def _dummy_run(self,
                    aclgraph_runtime_mode: Optional[CUDAGraphMode] = None,
@@ -359,6 +558,17 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         """
         is_ubatch = dp_metadata_list is not None and len(dp_metadata_list) > 1
         print(f'is_ubatch in _dummy_run is {is_ubatch}')
+        if _ffn_graph_mtp_trace_enabled():
+            logger.info(
+                "[FFN-GRAPH-MTP-TRACE] _dummy_run: dp_key=%s acl_mode=%s "
+                "is_ubatch=%s dp_summary=%s num_layers=%s num_hidden_layers=%s",
+                dp_metadata_key,
+                aclgraph_runtime_mode,
+                is_ubatch,
+                _summarize_dp_metadata_list(dp_metadata_list),
+                self.num_layers,
+                self.num_hidden_layers,
+            )
 
         # only support eager mode and piecewise graph now
         assert aclgraph_runtime_mode is None or aclgraph_runtime_mode in {
@@ -366,14 +576,21 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         }
         # _ag_mode, batch_descriptor = \
         #     self.cudagraph_dispatcher.dispatch(num_tokens=num_tokens, uniform_decode=uniform_decode, has_lora=False)
+        afd_nt = kwargs.get("afd_num_actual_tokens")
         if aclgraph_runtime_mode == CUDAGraphMode.FULL:
             # Create and capture the graph
             aclgraph = torch.npu.NPUGraph()
-            with torch.npu.graph(aclgraph, pool=self.graph_pool):
-                # compute_ffn_output
-                output = self._ffn_forward(
-                                  aclgraph_runtime_mode=aclgraph_runtime_mode,
-                                  dp_metadata_list=dp_metadata_list)
+            self._inside_ffn_npu_graph_capture = True
+            try:
+                with torch.npu.graph(aclgraph, pool=self.graph_pool):
+                    # compute_ffn_output
+                    output = self._ffn_forward(
+                        aclgraph_runtime_mode=aclgraph_runtime_mode,
+                        dp_metadata_list=dp_metadata_list,
+                        afd_num_actual_tokens=afd_nt,
+                    )
+            finally:
+                self._inside_ffn_npu_graph_capture = False
             # Store the captured graph with dp_metadata_key as key
             self._acl_graphs[dp_metadata_key] = {
                 'graph': aclgraph,
@@ -382,8 +599,11 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
             }
             print(f'self._acl_graphs key={dp_metadata_key}', flush=True)
         else:
-            self._ffn_forward(aclgraph_runtime_mode=aclgraph_runtime_mode,
-                              dp_metadata_list=dp_metadata_list)
+            self._ffn_forward(
+                aclgraph_runtime_mode=aclgraph_runtime_mode,
+                dp_metadata_list=dp_metadata_list,
+                afd_num_actual_tokens=afd_nt,
+            )
             print("finsh capture warm_up or prefile run",flush=True)
         print(f'self.dummy_run_call_cnt is {self.dummy_run_call_cnt}')
         self.dummy_run_call_cnt += 1
@@ -452,36 +672,88 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         else:
             return attn_num_tokens
 
-    def _ffn_forward(self,
-                     aclgraph_runtime_mode: Optional[CUDAGraphMode] = None,
-                     dp_metadata_list: dict | None = None):
-        """Run FFN computation for graph capture or replay"""
+    @contextmanager
+    def _ffn_ascend_forward_ctx(
+        self,
+        dp_metadata_list: dict | None,
+        aclgraph_runtime_mode: CUDAGraphMode,
+        afd_num_actual_tokens: int | None = None,
+    ):
+        """Match capture-time ascend forward context for eager *and* NPUGraph replay.
+
+        NPUGraph ``replay()`` does not re-run Python ``_ffn_forward``; without
+        this, ``get_forward_context()`` (moe_comm_type, mc2 scratch, padded
+        lengths) can differ from capture and break MTP + AFD + EP paths.
+        """
         is_ubatch = dp_metadata_list is not None and len(dp_metadata_list) > 1
         num_ubatches = self.parallel_config.num_ubatches if is_ubatch else 1
-        rank_ffn_output = None
-        print(f"jcz _ffn_forward max_num_tokens:{self.max_num_tokens}")
-
-        ffn_multistream_enable = self.ffn_multistream_capable and num_ubatches > 1
-
         afd_metadata = AFDMetadata(
             afd_tokens_start_loc=[],
             afd_reqs_start_loc=[],
             afd_stage_idx=0,
             afd_connector=self.connector,
             afd_tokens_lens=[],
-            num_of_stages=num_ubatches
+            num_of_stages=num_ubatches,
         )
-        num_tokens_across_dp = self._build_ffn_num_tokens_across_dp(dp_metadata_list)
+        num_tokens_across_dp = self._build_ffn_num_tokens_across_dp(
+            dp_metadata_list)
+        local_num_tokens = 0
+        if num_tokens_across_dp is not None and num_tokens_across_dp.numel() > 0:
+            try:
+                dp = get_dp_group()
+                rid = dp.rank_in_group
+                if rid is not None and 0 <= int(rid) < int(
+                        num_tokens_across_dp.numel()):
+                    local_num_tokens = int(
+                        num_tokens_across_dp[int(rid)].item())
+                else:
+                    local_num_tokens = int(num_tokens_across_dp[0].item())
+            except Exception:
+                local_num_tokens = int(num_tokens_across_dp[0].item())
+        _ffd_ctx = dict(
+            attn_metadata=None,
+            vllm_config=self.vllm_config,
+            batch_descriptor=None,
+            aclgraph_runtime_mode=aclgraph_runtime_mode,
+            model_instance=self.model,
+            afd_metadata=afd_metadata,
+            num_tokens=local_num_tokens,
+            num_tokens_across_dp=num_tokens_across_dp,
+        )
+        if afd_num_actual_tokens is not None:
+            _ffd_ctx["num_actual_tokens"] = int(afd_num_actual_tokens)
+        with set_ascend_forward_context(**_ffd_ctx):
+            yield
+
+    def _ffn_forward(self,
+                     aclgraph_runtime_mode: Optional[CUDAGraphMode] = None,
+                     dp_metadata_list: dict | None = None,
+                     afd_num_actual_tokens: int | None = None):
+        """Run FFN computation for graph capture or replay"""
+        is_ubatch = dp_metadata_list is not None and len(dp_metadata_list) > 1
+        num_ubatches = self.parallel_config.num_ubatches if is_ubatch else 1
+        rank_ffn_output = None
+        print(f"jcz _ffn_forward max_num_tokens:{self.max_num_tokens}")
+        if _ffn_graph_mtp_trace_enabled():
+            logger.info(
+                "[FFN-GRAPH-MTP-TRACE] _ffn_forward: aclgraph_runtime_mode=%s "
+                "is_ubatch=%s num_ubatches_cfg=%s num_ubatches_effective=%s "
+                "max_num_tokens(cfg)=%s dp_summary=%s dp_key=%s",
+                aclgraph_runtime_mode,
+                is_ubatch,
+                self.parallel_config.num_ubatches,
+                num_ubatches,
+                self.max_num_tokens,
+                _summarize_dp_metadata_list(dp_metadata_list),
+                self._get_dp_metadata_key(
+                    dp_metadata_list, afd_num_actual_tokens),
+            )
+
+        ffn_multistream_enable = self.ffn_multistream_capable and num_ubatches > 1
+
         ffn_event_recorded = [False] * num_ubatches
-        with set_ascend_forward_context(
-                    attn_metadata=None,
-                    vllm_config=self.vllm_config,
-                    batch_descriptor=None,
-                    aclgraph_runtime_mode=aclgraph_runtime_mode,
-                    model_instance=self.model,
-                    afd_metadata=afd_metadata,
-                    num_tokens=num_tokens_across_dp[0],
-                    num_tokens_across_dp=num_tokens_across_dp):
+        with self._ffn_ascend_forward_ctx(
+                dp_metadata_list, aclgraph_runtime_mode, afd_num_actual_tokens):
             for layer_idx in range(0, self.num_layers):
                 layer_multistream = ffn_multistream_enable and (layer_idx > 0)
                 for ubatch_idx in range(num_ubatches):
@@ -499,6 +771,26 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                     print(f'{self.connector_name} recv_attn_output success ,layer id is {layer_idx}, '
                         f'ubatch_idx is {ubatch_idx} recv_output:{recv_output.hidden_states.shape}', flush=True)
 
+                    # EP ranks must enter MoE/CAM for the same (layer, ubatch) together.
+                    # Logs showed EP0/EP1 progressing at different speeds → garbage topk on one
+                    # rank (e.g. int32 expert ids ±1e9) → 507015 in dispatch / aclnnCast.
+                    #
+                    # During ``torch.npu.graph`` capture, ``torch.npu.synchronize()`` (device-wide)
+                    # triggers Ascend 107027 (stream is captured). Use only the **current**
+                    # stream there if needed; logs show EP barrier cannot be omitted during capture
+                    # or ranks finish different layers concurrently and MoE/collectives corrupt.
+                    try:
+                        ep_g = get_ep_group()
+                    except Exception:
+                        ep_g = None
+                    if (ep_g is not None and ep_g.world_size > 1
+                            and dist.is_initialized()):
+                        if self._inside_ffn_npu_graph_capture:
+                            dist.barrier(group=ep_g.cpu_group)
+                        else:
+                            torch.npu.current_stream().synchronize()
+                            dist.barrier(group=ep_g.cpu_group)
+
                     hidden_states = recv_output.hidden_states
                     dynamic_scales = recv_output.dynamic_scales
                     group_list = recv_output.group_list
@@ -507,6 +799,43 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                     router_logits = recv_output.router_logits
                     row_idx = recv_output.row_idx
                     x_active_mask = recv_output.x_active_mask
+                    if _ffn_graph_mtp_trace_enabled():
+                        msum = None
+                        if x_active_mask is not None:
+                            try:
+                                msum = int(x_active_mask.sum().detach().cpu().item())
+                            except Exception:
+                                msum = "<?>"
+                        logger.info(
+                            "[FFN-GRAPH-MTP-TRACE] after_recv: layer=%s/%s "
+                            "ubatch=%s is_mtp_layer=%s hid=%s topk_w=%s topk_id=%s "
+                            "router_logits=%s x_active_mask_sum=%s group_list=%s",
+                            layer_idx,
+                            self.num_layers - 1,
+                            ubatch_idx,
+                            layer_idx >= self.num_hidden_layers,
+                            tuple(hidden_states.shape),
+                            tuple(topk_weights.shape) if topk_weights is not None else None,
+                            tuple(topk_ids.shape) if topk_ids is not None else None,
+                            tuple(router_logits.shape)
+                            if router_logits is not None else None,
+                            msum,
+                            tuple(group_list.shape) if group_list is not None else None,
+                        )
+
+                    if (envs_ascend.VLLM_ASCEND_FFN_POST_RECV_SYNC_DIAG
+                            and topk_ids is not None):
+                        _log_ffn_post_recv_moe_sync_diag(
+                            logger=logger,
+                            layer_idx=layer_idx,
+                            num_layers=self.num_layers,
+                            ubatch_idx=ubatch_idx,
+                            dp_key=self._get_dp_metadata_key(
+                                dp_metadata_list, afd_num_actual_tokens),
+                            hidden_states=hidden_states,
+                            topk_ids=topk_ids,
+                            x_active_mask=x_active_mask,
+                        )
 
                     # FFN compute: runs on default stream
                     rank_ffn_output = self._run_ffn_computation(
@@ -532,14 +861,16 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                         ffn_event_recorded[ubatch_idx] = True
                     print(f'cam send_ffn_output success ,layer id is {layer_idx},ubatch_idx is {ubatch_idx}', flush=True)
 
-                if envs_ascend.VLLM_ASCEND_FFN_DIAG_SYNC_PER_LAYER:
-                    torch.npu.synchronize()
+                if (envs_ascend.VLLM_ASCEND_FFN_DIAG_SYNC_PER_LAYER
+                        and not self._inside_ffn_npu_graph_capture):
+                    torch.npu.current_stream().synchronize()
                     logger.info(
                         "[FFN-DIAG] per-layer sync OK layer_idx=%s/%s dp_key=%s "
                         "aclgraph_mode=%s",
                         layer_idx,
                         self.num_layers - 1,
-                        self._get_dp_metadata_key(dp_metadata_list),
+                        self._get_dp_metadata_key(
+                            dp_metadata_list, afd_num_actual_tokens),
                         aclgraph_runtime_mode,
                     )
 

@@ -16,7 +16,8 @@ import re
 import torch
 from torch.distributed.distributed_c10d import _update_default_pg, _get_default_group
 
-from vllm.distributed.parallel_state import (get_dp_group, init_afd_process_group,
+from vllm.distributed.parallel_state import (get_ep_group,
+                                              init_afd_process_group,
                                               init_model_parallel_group)
 from vllm_ascend.distributed.metadata import (CAMP2PAFDConnectorMetadata)
 from vllm_ascend.ops.fused_moe.experts_selector import select_experts
@@ -28,14 +29,10 @@ from vllm.utils.torch_utils import direct_register_custom_op
 from vllm.forward_context import ForwardContext, get_forward_context
 
 from vllm_ascend.utils import npu_stream_switch_within_graph
+import vllm_ascend.envs as envs_ascend
+from vllm.logger import init_logger
 
-
-# vLLM's TorchCompileWithNoGuardsWrapper rejects @torch._dynamo.disable callees
-# inside the compiled region; keep scalar tensor reads traceable where possible.
-try:
-    torch._dynamo.config.capture_scalar_outputs = True
-except Exception:
-    pass
+logger = init_logger(__name__)
 
 
 def _in_torch_compile_trace() -> bool:
@@ -48,6 +45,30 @@ def _in_torch_compile_trace() -> bool:
         return bool(torch._dynamo.is_compiling())
     except Exception:
         return False
+
+
+def _npu_stream_in_graph_capture() -> bool:
+    """True if the current NPU stream is in ACL/NPUGraph capture (D2H/sync is illegal → 107027)."""
+    for name in (
+            "is_current_stream_capturing",
+            "_is_in_graph_capture",
+            "is_in_graph_capture",
+    ):
+        try:
+            fn = getattr(torch.npu, name, None)
+            if callable(fn) and bool(fn()):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _afd_a2e_wire_diag_allow_d2h() -> bool:
+    if not envs_ascend.VLLM_ASCEND_AFD_WIRE_DIAG_D2H:
+        return False
+    if _npu_stream_in_graph_capture():
+        return False
+    return True
 
 
 def _active_dp_metadata_from_forward_ctx(ctx: ForwardContext):
@@ -65,85 +86,6 @@ def _active_dp_metadata_from_forward_ctx(ctx: ForwardContext):
     return dpl[0]
 
 
-def _expected_local_attn_rows_for_a2e(dm) -> Optional[int]:
-    """Rows this DP rank should send into a2e; must match dp_metadata treaty.
-
-    Always use num_tokens_across_dp_cpu[dp_rank] only. Do not index
-    dm.local_sizes by dp_rank when SP/chunking expands that list — lengths
-    can match num_tokens_across_dp by coincidence but semantics differ.
-    """
-    try:
-        dp_rank = get_dp_group().rank_in_group
-    except Exception:
-        return None
-    nta = dm.num_tokens_across_dp_cpu
-    if dp_rank < 0 or dp_rank >= nta.numel():
-        return None
-    return int(nta[dp_rank].item())
-
-
-def _barrier_attention_dp_before_cam_send() -> None:
-    """Match Attention DP ranks at the same layer before a2e / CAM collectives.
-
-    If one rank finishes attention earlier and enters cam_send while the other
-    is still in a prior layer, the paired FFN EP ranks can process different
-    layers and MoE HCCL collectives hang (stuck waiting for a peer).
-    """
-    if _in_torch_compile_trace():
-        return
-    try:
-        dp = get_dp_group()
-    except Exception:
-        return
-    if dp is None or dp.world_size <= 1:
-        return
-    dp.barrier()
-
-
-def _pad_attn_tensors_to_dp_metadata(
-    hidden_states: torch.Tensor,
-    topk_weights: Optional[torch.Tensor],
-    topk_idx: Optional[torch.Tensor],
-    compute_gate: int,
-) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """Align Attention send tensors with DPMetadata before a2e (torch_binding uses x.size(0))."""
-    ctx = get_forward_context()
-    if ctx is None:
-        return hidden_states, topk_weights, topk_idx
-    dm = _active_dp_metadata_from_forward_ctx(ctx)
-    if dm is None:
-        return hidden_states, topk_weights, topk_idx
-    # Prefer int expected rows stashed on ForwardContext when the runner builds
-    # the batch (see vllm forward_context / npu_ubatch_wrapper). Reading
-    # num_tokens_across_dp_cpu inside torch.compile makes expected a
-    # data-dependent scalar (Dynamo UserError on `if actual >= expected`).
-    expected = getattr(ctx, "afd_expected_a2e_rows", None)
-    if expected is None:
-        expected = getattr(ctx, "num_tokens", None)
-    if expected is None:
-        expected = _expected_local_attn_rows_for_a2e(dm)
-    if expected is None:
-        return hidden_states, topk_weights, topk_idx
-    row0 = hidden_states.shape[0]
-    if row0 >= expected:
-        return hidden_states, topk_weights, topk_idx
-    if row0 <= 0:
-        return hidden_states, topk_weights, topk_idx
-    pad_rows = expected - row0
-    # Ghost rows: duplicate last token hidden + routing; zero gate weights so
-    # they contribute nothing (avoids mass-routing padded rows to expert 0).
-    pad_hs = hidden_states[-1:].expand(pad_rows, hidden_states.shape[1]).clone()
-    hidden_states = torch.cat([hidden_states, pad_hs], dim=0)
-    if compute_gate == 1 and topk_idx is not None and topk_weights is not None:
-        k = topk_idx.shape[1]
-        pad_ids = topk_idx[-1:].expand(pad_rows, k).clone()
-        pad_w = torch.zeros(
-            (pad_rows, k), dtype=topk_weights.dtype, device=topk_weights.device)
-        topk_idx = torch.cat([topk_idx, pad_ids], dim=0)
-        topk_weights = torch.cat([topk_weights, pad_w], dim=0)
-    return hidden_states, topk_weights, topk_idx
-
-
 def _get_group_ep(ubatch_idx: int, hccl_comm_name: str, hccl_comm_name2: str, hccl_comm_name3: Optional[str]) -> str:
     groupEp = hccl_comm_name
     if ubatch_idx == 1:
@@ -152,6 +94,343 @@ def _get_group_ep(ubatch_idx: int, hccl_comm_name: str, hccl_comm_name2: str, hc
         assert hccl_comm_name3 is not None
         groupEp = hccl_comm_name3
     return groupEp
+
+
+def _summarize_dp_metadata_for_wire_diag(ctx: ForwardContext | None) -> str:
+    if ctx is None:
+        return "ctx=none"
+    dm = _active_dp_metadata_from_forward_ctx(ctx)
+    if dm is None:
+        return "dp_meta=none"
+    try:
+        nta = dm.num_tokens_across_dp_cpu.tolist()
+        mx = int(dm.max_tokens_across_dp_cpu.item())
+        exp = getattr(ctx, "afd_expected_a2e_rows", None)
+        nt = getattr(ctx, "num_tokens", None)
+        ubx = getattr(ctx, "ubatch_idx", None)
+        return (
+            f"ubatch_idx={ubx} nta={nta} max={mx} "
+            f"afd_expected_a2e_rows={exp} num_tokens={nt}"
+        )
+    except Exception as ex:
+        return f"dp_meta_err={ex}"
+
+
+def _tensor_shape(t: Any) -> Any:
+    if t is None:
+        return None
+    try:
+        return tuple(t.shape)
+    except Exception:
+        return "?"
+
+
+def _tensor_dtype_str(t: Any) -> Any:
+    if t is None:
+        return None
+    try:
+        return str(t.dtype)
+    except Exception:
+        return "?"
+
+
+def _tensor_data_ptr(t: Any) -> int:
+    if t is None:
+        return 0
+    try:
+        return int(t.data_ptr())
+    except Exception:
+        return 0
+
+
+def _log_afd_wire_send_diag(
+        *,
+        attn_world_rank: int,
+        p2p_rank: int,
+        layer_idx: int,
+        compute_gate: int,
+        hidden_size: int,
+        topk: int,
+        moe_expert_num: int,
+        max_num_reqs: int,
+        aiv_num: int,
+        multistream_enable: bool,
+        group_ep: str,
+        wire_ubatch_idx: int,
+        afd_ffn_size: int,
+        afd_attn_size: int,
+        afd_min_size: int,
+        hs_ret: torch.Tensor,
+        hs_send: torch.Tensor,
+        tw_send: Optional[torch.Tensor],
+        tid_send: Optional[torch.Tensor],
+        connector_batch_size: Optional[int] = None,
+) -> None:
+    if not envs_ascend.VLLM_ASCEND_AFD_WIRE_DIAG:
+        return
+    if _in_torch_compile_trace():
+        return
+    ctx = get_forward_context()
+    dp_s = _summarize_dp_metadata_for_wire_diag(ctx)
+    logger.info(
+        "[AFD-WIRE-SEND-HOST] attn_world_rank=%s p2p_rank=%s wire_ubatch=%s layer=%s compute_gate=%s "
+        "meta.h=%s meta.k=%s moe_expert_num=%s max_num_reqs=%s aiv_num=%s multistream=%s "
+        "group_ep=%s afd_ffn_size=%s afd_attn_size=%s afd_min_size=%s connector_batch_size=%s %s "
+        "hs_ret=%s hs_send=%s tw_send=%s tid_send=%s "
+        "ptrs=[hs_ret=0x%x,hs_send=0x%x,tw=0x%x,tid=0x%x]",
+        attn_world_rank,
+        p2p_rank,
+        wire_ubatch_idx,
+        layer_idx,
+        compute_gate,
+        hidden_size,
+        topk,
+        moe_expert_num,
+        max_num_reqs,
+        aiv_num,
+        multistream_enable,
+        group_ep,
+        afd_ffn_size,
+        afd_attn_size,
+        afd_min_size,
+        connector_batch_size,
+        dp_s,
+        tuple(hs_ret.shape),
+        tuple(hs_send.shape),
+        tuple(tw_send.shape) if tw_send is not None else None,
+        tuple(tid_send.shape) if tid_send is not None else None,
+        _tensor_data_ptr(hs_ret),
+        _tensor_data_ptr(hs_send),
+        _tensor_data_ptr(tw_send),
+        _tensor_data_ptr(tid_send),
+    )
+
+
+def _log_afd_a2e_recv_diag_host(
+        *,
+        ffn_rank: int,
+        metadata: Any,
+        compute_gate: int,
+        outputs: list,
+        ubatch_idx: int,
+        group_ep: str,
+) -> None:
+    """Shapes / metadata only — no NPU→CPU reads (survives 507015 blowups in later D2H)."""
+    if not envs_ascend.VLLM_ASCEND_AFD_WIRE_DIAG:
+        return
+    if _in_torch_compile_trace():
+        return
+    lyr = getattr(metadata, "layer_idx", "?")
+    bs = getattr(metadata, "batch_size", "?")
+    mh = getattr(metadata, "h", "?")
+    mk = getattr(metadata, "k", "?")
+    ep_ig = None
+    try:
+        ep_ig = get_ep_group().rank_in_group
+    except Exception:
+        pass
+    ctx = get_forward_context()
+    dp_s = _summarize_dp_metadata_for_wire_diag(ctx)
+    o0 = outputs[0] if len(outputs) > 0 else None
+    o1 = outputs[1] if len(outputs) > 1 else None
+    o2 = outputs[2] if len(outputs) > 2 else None
+    o3 = outputs[3] if len(outputs) > 3 else None
+    o4 = outputs[4] if len(outputs) > 4 else None
+    if compute_gate != 1:
+        o1 = o2 = None
+    logger.info(
+        "[AFD-A2E-RECV-HOST] ffn_rank=%s ep_ig=%s ubatch=%s layer=%s meta.batch_size=%s meta.h=%s "
+        "meta.k=%s compute_gate=%s group_ep=%s %s "
+        "out0_hid=%s out1_topk=%s out2_tw=%s out3_atten_bs=%s out4_mask=%s "
+        "dtypes=[%s,%s,%s,%s,%s] ptrs=[0x%x,0x%x,0x%x,0x%x,0x%x]",
+        ffn_rank,
+        ep_ig,
+        ubatch_idx,
+        lyr,
+        bs,
+        mh,
+        mk,
+        compute_gate,
+        group_ep,
+        dp_s,
+        _tensor_shape(o0),
+        _tensor_shape(o1),
+        _tensor_shape(o2),
+        _tensor_shape(o3),
+        _tensor_shape(o4),
+        _tensor_dtype_str(o0),
+        _tensor_dtype_str(o1),
+        _tensor_dtype_str(o2),
+        _tensor_dtype_str(o3),
+        _tensor_dtype_str(o4),
+        _tensor_data_ptr(o0),
+        _tensor_data_ptr(o1),
+        _tensor_data_ptr(o2),
+        _tensor_data_ptr(o3),
+        _tensor_data_ptr(o4),
+    )
+
+
+def _log_afd_a2e_recv_diag_d2h(
+        *,
+        ffn_rank: int,
+        metadata: Any,
+        compute_gate: int,
+        outputs: list,
+        ubatch_idx: int = 0,
+) -> None:
+    out_h = outputs[0]
+    out_tid = outputs[1] if compute_gate == 1 else None
+    out_tw = outputs[2] if compute_gate == 1 else None
+    out_abs = outputs[3]
+    out_mask = outputs[4]
+    lyr = getattr(metadata, "layer_idx", "?")
+    bs = getattr(metadata, "batch_size", "?")
+    tid_mm = None
+    if out_tid is not None and out_tid.numel() > 0:
+        try:
+            tid_mm = (
+                int(out_tid.min().detach().cpu().item()),
+                int(out_tid.max().detach().cpu().item()),
+            )
+        except Exception as ex:
+            tid_mm = f"<d2h_failed:{ex!r}>"
+    mask_sum = mask_nz = None
+    mask_err = None
+    mask_checks = ""
+    mask_numel = hid_rows = -1
+    mask_head_i32 = None
+    mask_mm_i32 = None
+    ep_ig = None
+    try:
+        ep_ig = get_ep_group().rank_in_group
+    except Exception:
+        pass
+    if out_mask is not None:
+        try:
+            mask_numel = int(out_mask.numel())
+            hid_rows = int(out_h.shape[0]) if out_h.dim() >= 1 else -1
+        except Exception:
+            mask_numel = hid_rows = -1
+        try:
+            mask_sum = int(out_mask.to(torch.int64).sum().detach().cpu().item())
+            mask_nz = int(torch.count_nonzero(out_mask).detach().cpu().item())
+        except Exception as ex:
+            mask_err = str(ex)
+        issues = []
+        if mask_sum is not None:
+            if mask_sum < 0:
+                issues.append("neg_sum")
+            if mask_numel >= 0 and mask_sum > mask_numel:
+                issues.append("sum_gt_numel")
+        if (
+            mask_sum is not None
+            and mask_nz is not None
+            and mask_sum != mask_nz
+        ):
+            issues.append("sum_ne_count_nonzero")
+        if hid_rows >= 0 and mask_numel >= 0 and mask_numel != hid_rows:
+            issues.append(f"numel_ne_hid_rows({mask_numel}!={hid_rows})")
+        mask_checks = ",".join(issues) if issues else "ok"
+        try:
+            flat = out_mask.flatten()
+            k = min(8, flat.numel())
+            if k > 0:
+                f32 = flat[:k].to(torch.int32)
+                mask_head_i32 = f32.detach().cpu().tolist()
+                mask_mm_i32 = (
+                    int(flat.to(torch.int32).min().detach().cpu().item()),
+                    int(flat.to(torch.int32).max().detach().cpu().item()),
+                )
+        except Exception as ex:
+            mask_head_i32 = f"<d2h_failed:{ex!r}>"
+    abs_info = None
+    if out_abs is not None:
+        try:
+            if out_abs.numel() <= 8:
+                abs_info = out_abs.detach().cpu().tolist()
+            else:
+                abs_info = f"shape={tuple(out_abs.shape)}"
+        except Exception as ex:
+            abs_info = f"<d2h_failed:{ex!r}>"
+    logger.info(
+        "[AFD-A2E-RECV] ffn_rank=%s ep_ig=%s ubatch=%s layer=%s metadata.batch_size=%s compute_gate=%s "
+        "hid=%s topk_ids=%s topk_minmax=%s tw=%s atten_batch_size=%s "
+        "x_active_mask=%s dtype=%s ptr=0x%x mask_numel=%s hid_rows=%s checks=%s "
+        "sum_i64=%s count_nonzero=%s mask_i32_minmax=%s head_i32=%s err=%s",
+        ffn_rank,
+        ep_ig,
+        ubatch_idx,
+        lyr,
+        bs,
+        compute_gate,
+        tuple(out_h.shape),
+        tuple(out_tid.shape) if out_tid is not None else None,
+        tid_mm,
+        tuple(out_tw.shape) if out_tw is not None else None,
+        abs_info,
+        tuple(out_mask.shape) if out_mask is not None else None,
+        str(out_mask.dtype) if out_mask is not None else None,
+        int(out_mask.data_ptr()) if out_mask is not None else 0,
+        mask_numel,
+        hid_rows,
+        mask_checks,
+        mask_sum,
+        mask_nz,
+        mask_mm_i32,
+        mask_head_i32,
+        mask_err,
+    )
+
+
+def _log_afd_a2e_recv_diag(
+        *,
+        ffn_rank: int,
+        metadata: Any,
+        compute_gate: int,
+        outputs: list,
+        ubatch_idx: int = 0,
+        group_ep: str = "",
+) -> None:
+    if not envs_ascend.VLLM_ASCEND_AFD_WIRE_DIAG:
+        return
+    if _in_torch_compile_trace():
+        return
+    _log_afd_a2e_recv_diag_host(
+        ffn_rank=ffn_rank,
+        metadata=metadata,
+        compute_gate=compute_gate,
+        outputs=outputs,
+        ubatch_idx=ubatch_idx,
+        group_ep=group_ep,
+    )
+    if not _afd_a2e_wire_diag_allow_d2h():
+        logger.info(
+            "[AFD-A2E-RECV-D2H-SKIP] ffn_rank=%s ubatch=%s layer=%s "
+            "reason=d2h_disabled_or_graph_capture(%s,%s)",
+            ffn_rank,
+            ubatch_idx,
+            getattr(metadata, "layer_idx", "?"),
+            not envs_ascend.VLLM_ASCEND_AFD_WIRE_DIAG_D2H,
+            _npu_stream_in_graph_capture(),
+        )
+        return
+    try:
+        _log_afd_a2e_recv_diag_d2h(
+            ffn_rank=ffn_rank,
+            metadata=metadata,
+            compute_gate=compute_gate,
+            outputs=outputs,
+            ubatch_idx=ubatch_idx,
+        )
+    except Exception as ex:
+        logger.info(
+            "[AFD-A2E-RECV-D2H-SKIP] ffn_rank=%s ubatch=%s layer=%s reason=%r",
+            ffn_rank,
+            ubatch_idx,
+            getattr(metadata, "layer_idx", "?"),
+            ex,
+        )
 
 
 class CAMP2PAFDConnector(AFDConnectorBase):
@@ -366,9 +645,6 @@ class CAMP2PAFDConnector(AFDConnectorBase):
         topk_weights = kwargs.get('topk_weights')
         topk_idx = kwargs.get('topk_ids')
 
-        if metadata.connector_data:
-            get_forward_context().cam_afdconnector_data = metadata.connector_data
-
         if self.mix_placement:
             k = self.hf_config.num_experts_per_tok + self.num_shared_experts
             moe_expert_num = self.hf_config.n_routed_experts + self.num_shared_experts
@@ -381,13 +657,39 @@ class CAMP2PAFDConnector(AFDConnectorBase):
             compute_gate = 0
         else:
             compute_gate = 1 if getattr(self.config.afd_config, 'compute_gate_on_attention', True) else 0
-        # Padding is only for a2e wire format; return unpadded tensors so residual /
-        # next-layer hidden shapes stay consistent (see maybe_chunk_residual).
-        hs_ret, tw_ret, tid_ret = hidden_states, topk_weights, topk_idx
-        hs_send, tw_send, tid_send = _pad_attn_tensors_to_dp_metadata(
-            hidden_states, topk_weights, topk_idx, compute_gate)
-        _barrier_attention_dp_before_cam_send()
-        torch.ops.vllm.cam_send_attn_output(hs_send, tw_send, tid_send,
+        if metadata.connector_data is not None:
+            metadata.connector_data.batch_size = int(hidden_states.shape[0])
+            get_forward_context().cam_afdconnector_data = metadata.connector_data
+        ubatch_idx = int(kwargs.get("ubatch_idx", 0))
+        group_ep = _get_group_ep(
+            ubatch_idx,
+            self.hccl_comm_name,
+            self.hccl_comm_name2,
+            self.hccl_comm_name3,
+        )
+        _log_afd_wire_send_diag(
+            attn_world_rank=self.rank,
+            p2p_rank=self.p2p_rank,
+            layer_idx=metadata.layer_idx,
+            compute_gate=compute_gate,
+            hidden_size=int(self.hf_config.hidden_size),
+            topk=int(k),
+            moe_expert_num=int(moe_expert_num),
+            max_num_reqs=int(self.max_num_reqs),
+            aiv_num=int(self.aiv_num),
+            multistream_enable=bool(multistream_enable),
+            group_ep=group_ep,
+            wire_ubatch_idx=ubatch_idx,
+            afd_ffn_size=int(self.ffn_size),
+            afd_attn_size=int(self.attn_size),
+            afd_min_size=int(self.min_size),
+            hs_ret=hidden_states,
+            hs_send=hidden_states,
+            tw_send=topk_weights,
+            tid_send=topk_idx,
+            connector_batch_size=int(hidden_states.shape[0]),
+        )
+        torch.ops.vllm.cam_send_attn_output(hidden_states, topk_weights, topk_idx,
                                             self.hccl_comm_name,
                                             self.hccl_comm_name2,
                                             self.hccl_comm_name3,
@@ -401,7 +703,7 @@ class CAMP2PAFDConnector(AFDConnectorBase):
                                             multistream_enable,
                                             self.aiv_num,
                                             compute_gate)
-        return hs_ret, None
+        return hidden_states, None
 
     # MOE发给ATTN（ATTN接收）
     def recv_ffn_output(self,
@@ -471,6 +773,14 @@ class CAMP2PAFDConnector(AFDConnectorBase):
                                                 compute_gate=compute_gate)
 
         # outputs: [hidden_states1, simulateExpertIds, simulateExpertScales, attenBatchSize, xActiveMaskOut]
+        _log_afd_a2e_recv_diag(
+            ffn_rank=self.rank,
+            metadata=metadata,
+            compute_gate=compute_gate,
+            outputs=outputs,
+            ubatch_idx=ubatch_idx,
+            group_ep=groupEp,
+        )
         from vllm.distributed.afd_transfer.afd_connector.metadata import AFDRecvOutput
         out_topk_ids = outputs[1] if compute_gate == 1 else None
         out_topk_w = outputs[2] if compute_gate == 1 else None
@@ -587,13 +897,7 @@ class CAMP2PAFDConnector(AFDConnectorBase):
         is_graph_capturing: bool = False,
         is_warmup: bool = False,
     ):
-        """发送dp_metadata_list给对应的FFN rank
-
-        Args:
-            data: dp_metadata_list字典
-            is_graph_capturing: 是否处于graph capture阶段
-            is_warmup: 是否处于warmup阶段
-        """
+        """发送dp_metadata_list给对应的FFN rank"""
         send_data = (data, is_graph_capturing, is_warmup)
 
         for dst in self.dst_list:
@@ -616,7 +920,9 @@ class CAMP2PAFDConnector(AFDConnectorBase):
         """接收dp_metadata_list
 
         Returns:
-            tuple: (data, is_graph_capturing, is_warmup)
+            tuple: (data, is_graph_capturing, is_warmup, afd_num_actual_tokens,
+                attn_aclgraph_runtime_mode)
+                后两项可为 None（旧 pickle 格式）。
         """
         src = self.p2p_rank % self.min_size + self.ffn_size
 
@@ -632,14 +938,26 @@ class CAMP2PAFDConnector(AFDConnectorBase):
         object_tensor_cpu = object_tensor_npu.cpu()
         obj = pickle.loads(object_tensor_cpu.numpy().tobytes())
 
-        if len(obj) == 3:
+        afd_num_actual_tokens = None
+        attn_aclgraph_runtime_mode = None
+        if len(obj) == 5:
+            data, is_graph_capturing, is_warmup, afd_num_actual_tokens, attn_aclgraph_runtime_mode = obj
+        elif len(obj) == 4:
+            data, is_graph_capturing, is_warmup, afd_num_actual_tokens = obj
+        elif len(obj) == 3:
             data, is_graph_capturing, is_warmup = obj
         else:
             # 兼容旧格式
             data, is_graph_capturing = obj
             is_warmup = False
 
-        return data, is_graph_capturing, is_warmup
+        return (
+            data,
+            is_graph_capturing,
+            is_warmup,
+            afd_num_actual_tokens,
+            attn_aclgraph_runtime_mode,
+        )
 
     def update_state_from_dp_metadata(
         self,
@@ -730,6 +1048,8 @@ def cam_send_attn_output_impl(hidden_states: torch.Tensor,
                               multistream_enable: bool,
                               aiv_num: int,
                               compute_gate: int = 1) -> torch.Tensor:
+    if not _npu_stream_in_graph_capture():
+        torch.npu.synchronize()
     ubatch_idx = get_forward_context().ubatch_idx
     comm_stream = get_forward_context().afd_comm_stream
     comm_event = get_forward_context().afd_comm_event

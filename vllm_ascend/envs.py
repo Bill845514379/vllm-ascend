@@ -173,6 +173,36 @@ env_variables: Dict[str, Callable[[], Any]] = {
     # to localize NPU failures that first appear at the worker sync point.
     "VLLM_ASCEND_FFN_DIAG_SYNC_PER_LAYER":
     lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_DIAG_SYNC_PER_LAYER", '0'))),
+    # Verbose trace for ACL graph + MTP issues: metadata keys, replay vs fallback,
+    # per-layer recv/compute shapes (default off).
+    "VLLM_ASCEND_FFN_GRAPH_MTP_TRACE":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_GRAPH_MTP_TRACE", '0'))),
+    # Semicolon-separated repr(dp_key) strings; matching keys skip NPUGraph replay and
+    # run eager _ffn_forward (see NPUFFNModelRunner._get_dp_metadata_key). Example for
+    # single-stage 96 tokens: ((0, (96, 96)),)
+    "VLLM_ASCEND_FFN_GRAPH_REPLAY_DENYLIST":
+    lambda: frozenset(
+        x.strip() for x in os.getenv(
+            "VLLM_ASCEND_FFN_GRAPH_REPLAY_DENYLIST", "").split(";") if x.strip()),
+    # If true, torch.npu.synchronize() before graph.replay() to isolate stream/backlog
+    # issues (default off).
+    "VLLM_ASCEND_FFN_GRAPH_REPLAY_PRE_SYNC":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_GRAPH_REPLAY_PRE_SYNC", '0'))),
+    # After CAM recv, before MoE: log topk_ids min/max (CPU) and mask stats (no
+    # torch.npu.synchronize — that can trigger 107027 with NPUGraph). Default off.
+    "VLLM_ASCEND_FFN_POST_RECV_SYNC_DIAG":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_POST_RECV_SYNC_DIAG", '0'))),
+    # AFD camp2p: log Attention send tensors and a2e outputs incl. x_active_mask.
+    # Recv path logs [AFD-A2E-RECV-HOST] first (shapes/metadata only, no D2H) so traces stay
+    # readable after aicore faults (507015). Optional [AFD-A2E-RECV] adds minmax/mask stats via D2H.
+    # No torch.npu.synchronize in these helpers. Default off.
+    "VLLM_ASCEND_AFD_WIRE_DIAG":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_WIRE_DIAG", '0'))),
+    # When WIRE_DIAG is on: allow NPU→CPU minmax/mask reads for [AFD-A2E-RECV]. Set 0 to keep only
+    # [AFD-A2E-RECV-HOST], or when NPUGraph capture still errors (107027) if is_current_stream_capturing
+    # is missing on your CANN build. Default on.
+    "VLLM_ASCEND_AFD_WIRE_DIAG_D2H":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_WIRE_DIAG_D2H", '1'))),
 }
 
 # end-env-vars-definition

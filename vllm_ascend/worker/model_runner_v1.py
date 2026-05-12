@@ -1295,6 +1295,39 @@ class NPUModelRunner(GPUModelRunner):
                                              intermediate_tensors,
                                              inputs_embeds, model_kwargs):
         assert self.model is not None
+        try:
+            from vllm_ascend.worker.afd_wire_log import log_afd_attn_wire
+
+            def _afd_tensor_rows(t):
+                if t is None:
+                    return None
+                try:
+                    return int(t.shape[0])
+                except Exception:
+                    return type(t).__name__
+
+            log_afd_attn_wire(
+                "pre_model_forward_inputs",
+                get_forward_context(),
+                maybe_padded_num_tokens_arg=maybe_padded_num_tokens,
+                input_ids_rows=_afd_tensor_rows(input_ids),
+                positions_rows=_afd_tensor_rows(positions),
+                inputs_embeds_rows=_afd_tensor_rows(inputs_embeds),
+            )
+        except Exception as e:
+            try:
+                from vllm_ascend.worker.afd_wire_log import (
+                    is_afd_attn_wire_log_enabled,
+                )
+
+                if is_afd_attn_wire_log_enabled():
+                    print(
+                        f"[AFD-ATTN-WIRE] pre_model_forward_inputs_log_failed "
+                        f"exc={e!r}",
+                        flush=True,
+                    )
+            except Exception:
+                pass
         hidden_states = self.model(input_ids=input_ids,
                                    positions=positions,
                                    intermediate_tensors=intermediate_tensors,
@@ -1332,8 +1365,49 @@ class NPUModelRunner(GPUModelRunner):
                 hidden_states, IntermediateTensors):
             hidden_states = self._all_gather_hidden_states_and_aux(
                 hidden_states)
-        return hidden_states if self.pcp_size == 1 else self.pcp_manager.get_restore_hidden_states(
+        out_hs = hidden_states if self.pcp_size == 1 else self.pcp_manager.get_restore_hidden_states(
             hidden_states)
+        try:
+            from vllm_ascend.worker.afd_wire_log import (
+                hidden_states_row0,
+                is_afd_attn_wire_log_enabled,
+                log_afd_attn_wire,
+            )
+
+            if is_afd_attn_wire_log_enabled():
+                fctx = get_forward_context()
+                pos_r = None
+                try:
+                    pos_r = (int(positions.shape[0]) if positions is not None
+                             else None)
+                except Exception:
+                    pos_r = None
+                try:
+                    hr = hidden_states_row0(out_hs)
+                except Exception as e:
+                    hr = f"hidden_states_row0_error={e!r}"
+                log_afd_attn_wire(
+                    "post_model_forward_hs",
+                    fctx,
+                    hs_rows=hr,
+                    maybe_padded_num_tokens_arg=maybe_padded_num_tokens,
+                    positions_rows=pos_r,
+                    pcp_size=int(self.pcp_size),
+                )
+        except Exception as e:
+            try:
+                from vllm_ascend.worker.afd_wire_log import (
+                    is_afd_attn_wire_log_enabled,
+                )
+
+                if is_afd_attn_wire_log_enabled():
+                    print(
+                        f"[AFD-ATTN-WIRE] post_model_forward_hs_failed exc={e!r}",
+                        flush=True,
+                    )
+            except Exception:
+                pass
+        return out_hs
 
     def _build_attn_state(self, num_reqs, num_scheduled_tokens,
                           num_valid_tokens):
@@ -2302,6 +2376,46 @@ class NPUModelRunner(GPUModelRunner):
             hidden_states, _ = hidden_states
         else:
             hidden_states = hidden_states
+        try:
+            from vllm_ascend.worker.afd_wire_log import (
+                hidden_states_row0,
+                is_afd_attn_wire_log_enabled,
+                log_afd_attn_wire,
+            )
+
+            if is_afd_attn_wire_log_enabled():
+                fctx = get_forward_context()
+                pos_r = None
+                try:
+                    pos_r = (int(positions.shape[0]) if positions is not None
+                             else None)
+                except Exception:
+                    pos_r = None
+                try:
+                    hr = hidden_states_row0(hidden_states)
+                except Exception as e:
+                    hr = f"hidden_states_row0_error={e!r}"
+                log_afd_attn_wire(
+                    "dummy_run_post_model_forward_hs",
+                    fctx,
+                    hs_rows=hr,
+                    num_tokens_arg=num_tokens,
+                    positions_rows=pos_r,
+                )
+        except Exception as e:
+            try:
+                from vllm_ascend.worker.afd_wire_log import (
+                    is_afd_attn_wire_log_enabled,
+                )
+
+                if is_afd_attn_wire_log_enabled():
+                    print(
+                        f"[AFD-ATTN-WIRE] dummy_run_post_model_forward_hs_failed "
+                        f"exc={e!r}",
+                        flush=True,
+                    )
+            except Exception:
+                pass
         return hidden_states
 
     def _build_afd_metadata(

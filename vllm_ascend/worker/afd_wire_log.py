@@ -48,6 +48,46 @@ def format_batch_descriptor(bd: Any) -> str:
     return _bd_short(bd)
 
 
+def hidden_states_row0(hs: Any) -> Any:
+    """Best-effort batch row count from model output (Tensor, tuple, IntermediateTensors)."""
+    if hs is None:
+        return None
+    shape = getattr(hs, "shape", None)
+    if shape is not None and len(shape) > 0:
+        try:
+            return int(shape[0])
+        except Exception:
+            pass
+    if isinstance(hs, tuple) and len(hs) > 0:
+        return hidden_states_row0(hs[0])
+    if isinstance(hs, list) and len(hs) > 0:
+        return hidden_states_row0(hs[0])
+    tens = getattr(hs, "tensors", None)
+    if isinstance(tens, dict):
+        for key in ("hidden_states", "last_hidden"):
+            if key in tens:
+                return hidden_states_row0(tens[key])
+        if tens:
+            return hidden_states_row0(next(iter(tens.values())))
+    return f"?{type(hs).__name__}"
+
+
+def _safe_extra_val(v: Any) -> str:
+    """Avoid ``str(tensor)`` on device tensors (can error or sync oddly)."""
+    try:
+        sh = getattr(v, "shape", None)
+        if sh is not None and len(sh) > 0:
+            dt = getattr(v, "dtype", None)
+            return f"Tensor(shape={tuple(sh)},dtype={dt})"
+    except Exception:
+        pass
+    try:
+        s = repr(v)
+        return s if len(s) <= 240 else s[:237] + "..."
+    except Exception:
+        return "<?>"
+
+
 def log_afd_attn_wire(
     tag: str,
     ctx: Any | None = None,
@@ -81,7 +121,7 @@ def log_afd_attn_wire(
                 parts.append(f"dp_nta={_nta_list(getattr(dm, 'num_tokens_across_dp_cpu', None))}")
             parts.append(f"bd={_bd_short(getattr(ctx, 'batch_descriptor', None))}")
         for k in sorted(extra.keys()):
-            parts.append(f"{k}={extra[k]}")
+            parts.append(f"{k}={_safe_extra_val(extra[k])}")
         print(" ".join(str(p) for p in parts), flush=True)
     except Exception as e:
         try:

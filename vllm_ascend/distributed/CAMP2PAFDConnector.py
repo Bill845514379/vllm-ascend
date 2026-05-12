@@ -1,4 +1,5 @@
 import os
+import sys
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -32,13 +33,6 @@ from vllm.forward_context import ForwardContext, get_forward_context
 from vllm_ascend.utils import npu_stream_switch_within_graph
 
 logger = init_logger(__name__)
-
-# vLLM's TorchCompileWithNoGuardsWrapper rejects @torch._dynamo.disable callees
-# inside the compiled region; keep scalar tensor reads traceable where possible.
-try:
-    torch._dynamo.config.capture_scalar_outputs = True
-except Exception:
-    pass
 
 
 def _in_torch_compile_trace() -> bool:
@@ -584,21 +578,6 @@ class CAMP2PAFDConnector(AFDConnectorBase):
                         list(dp_metadata_list.keys())
                         if dp_metadata_list is not None else None,
                     )
-                diag = os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", "0") == "1"
-                if diag and 2 <= layer_idx <= 5:
-                    logger.info(
-                        "[AFD CAMP2P create_recv_metadata] layer_idx=%s ubatch_idx=%s "
-                        "rank=%s group_size=%s start_idx=%s end_idx=%s "
-                        "max_num_tokens=%s num_tokens_across_dp=%s",
-                        layer_idx,
-                        ubatch_idx,
-                        self.rank,
-                        group_size,
-                        start_idx,
-                        end_idx,
-                        max_num_tokens,
-                        num_tokens_across_dp,
-                    )
                 print(f"rank {self.rank} get max_num_tokens {max_num_tokens} from dp_metadata_list with group_size {group_size}")
             else:
                 max_num_tokens = kwargs.get('max_num_tokens', 0)
@@ -780,6 +759,50 @@ def cam_select_experts_fake_impl(
     return topk_weights, topk_ids
 
 
+def _maybe_log_topk_ids_before_cam_a2e(
+    *,
+    rank: int,
+    ubatch_idx: int,
+    moe_expert_num: int,
+    topk_idx: Optional[torch.Tensor],
+    compute_gate: int,
+) -> None:
+    """Debug: log routing indices immediately before ``a2e`` inside ``cam_send``.
+
+    Not run through ``send_attn_output`` Dynamo tracing (separate custom-op
+    entry). Set ``VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG=1``. Syncs to CPU — use
+    only for short debug runs."""
+    if os.getenv("VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG", "0") != "1":
+        return
+    if compute_gate != 1 or topk_idx is None:
+        return
+    try:
+        if topk_idx.numel() == 0:
+            return
+    except Exception:
+        return
+    try:
+        arr = topk_idx.detach().contiguous().cpu().numpy()
+        tmin = int(arr.min())
+        tmax = int(arr.max())
+        nb = int((arr < 0).sum() + (arr >= moe_expert_num).sum())
+        msg = (
+            f"[AFD-CAM-TOPK] before_a2e rank={rank} ubatch={ubatch_idx} "
+            f"moe_expert_num={moe_expert_num} shape={arr.shape} min={tmin} max={tmax} "
+            f"bad_vs_n={nb}"
+        )
+        print(msg, flush=True)
+        try:
+            logger.warning("%s", msg)
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            print(f"[AFD-CAM-TOPK] before_a2e log failed: {e}", flush=True)
+        except Exception:
+            pass
+
+
 def cam_send_attn_output_impl(hidden_states: torch.Tensor,
                               topk_weights: Optional[torch.Tensor],
                               topk_idx: Optional[torch.Tensor],
@@ -820,6 +843,18 @@ def cam_send_attn_output_impl(hidden_states: torch.Tensor,
     aiv_num = cam_metadata.aiv_num
 
     groupEp = _get_group_ep(ubatch_idx, hccl_comm_name, hccl_comm_name2, hccl_comm_name3)
+
+    try:
+        _ubi = int(ubatch_idx)
+    except Exception:
+        _ubi = -1
+    _maybe_log_topk_ids_before_cam_a2e(
+        rank=rank,
+        ubatch_idx=_ubi,
+        moe_expert_num=int(moe_expert_num),
+        topk_idx=topk_idx,
+        compute_gate=int(compute_gate),
+    )
 
     curr_stream = torch.npu.current_stream()
     with npu_stream_switch_within_graph(curr_stream, comm_stream, multistream_enable):

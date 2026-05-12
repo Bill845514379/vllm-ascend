@@ -166,6 +166,12 @@ env_variables: Dict[str, Callable[[], Any]] = {
     # Whether to anbale balance scheduling
     "VLLM_ASCEND_BALANCE_SCHEDULING":
     lambda: bool(int(os.getenv("VLLM_ASCEND_BALANCE_SCHEDULING", '0'))),
+    # AFD: log topk indices at cam_send → a2e boundary (see VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG).
+    "VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG", '0'))),
+    # AFD FFN: after recv_attn_output, log topk min/max / OOB (verbose when =1).
+    "VLLM_ASCEND_AFD_MOE_INDEX_DIAG":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", '0'))),
     # AFD FFN diagnostics: log enforce_eager / cudagraph flags once at runner init.
     "VLLM_ASCEND_FFN_DIAG_LOG_INIT":
     lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_DIAG_LOG_INIT", '0'))),

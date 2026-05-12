@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
-import os
 import time
 import gc
 from typing import TYPE_CHECKING, Any, Optional
@@ -460,10 +459,9 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         recv_output: Any,
         dp_metadata_list: dict | None,
     ) -> None:
-        """Log illegal MoE indices (always warns). Verbose digest for layers 2..5
-        when VLLM_ASCEND_AFD_MOE_INDEX_DIAG=1."""
+        """After recv: warn on illegal MoE indices; optional min/max when diag on."""
         rank = getattr(self.connector, "rank", -1)
-        diag = os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", "0") == "1"
+        diag = envs_ascend.VLLM_ASCEND_AFD_MOE_INDEX_DIAG
         focus = 2 <= layer_idx <= 5
         hs = recv_output.hidden_states
         if hs is None or hs.dim() != 2:

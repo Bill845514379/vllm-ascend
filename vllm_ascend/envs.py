@@ -192,6 +192,12 @@ env_variables: Dict[str, Callable[[], Any]] = {
     # torch.npu.synchronize — that can trigger 107027 with NPUGraph). Default off.
     "VLLM_ASCEND_FFN_POST_RECV_SYNC_DIAG":
     lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_POST_RECV_SYNC_DIAG", '0'))),
+    # If true: after recv and at MoE dispatch, D2H min/max on topk_ids and emit
+    # WARNING when outside [0, n_routed_experts). Catches EP desync / corrupt
+    # AFD tensors; also [AFD-FFN-MOE-OOB-RECV]/[COMPUTE] in CAMP2PAFDConnector.
+    # Default off.
+    "VLLM_ASCEND_FFN_MOE_OOB_WARN":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_FFN_MOE_OOB_WARN", '0'))),
     # AFD camp2p: log Attention send tensors and a2e outputs incl. x_active_mask.
     # Recv path logs [AFD-A2E-RECV-HOST] first (shapes/metadata only, no D2H) so traces stay
     # readable after aicore faults (507015). Optional [AFD-A2E-RECV] adds minmax/mask stats via D2H.
@@ -203,6 +209,12 @@ env_variables: Dict[str, Callable[[], Any]] = {
     # is missing on your CANN build. Default on.
     "VLLM_ASCEND_AFD_WIRE_DIAG_D2H":
     lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_WIRE_DIAG_D2H", '1'))),
+    # One-line correlation trace for speculative / MTP vs non-spec A2E layout:
+    # aiv_num, meta/hidden batch rows, atten_batch_size (D2H when not in graph capture),
+    # x_active_mask nz/sum and sample active row indices. Greppable tag: [AFD-SPEC-A2E].
+    # Default off.
+    "VLLM_ASCEND_AFD_SPEC_A2E_TRACE":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_SPEC_A2E_TRACE", '0'))),
 }
 
 # end-env-vars-definition

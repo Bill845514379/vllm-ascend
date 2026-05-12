@@ -58,6 +58,40 @@ def _ffn_graph_replay_denied(dp_key: tuple) -> bool:
     return repr(dp_key) in denied
 
 
+def _maybe_warn_moe_topk_oob(
+    topk_ids: torch.Tensor | None,
+    moe_expert_num: int,
+    *,
+    where: str,
+    layer_idx: int,
+    ubatch_idx: int,
+) -> None:
+    """D2H min/max; warn if expert indices are outside global routed range."""
+    if (not envs_ascend.VLLM_ASCEND_FFN_MOE_OOB_WARN
+            or topk_ids is None or topk_ids.numel() == 0):
+        return
+    try:
+        ep_rank = get_ep_group().rank_in_group
+        ep_world = get_ep_group().world_size
+    except Exception:
+        ep_rank, ep_world = -1, -1
+    try:
+        tmin = int(topk_ids.min().detach().cpu().item())
+        tmax = int(topk_ids.max().detach().cpu().item())
+    except Exception as ex:
+        logger.warning(
+            "[FFN-MOE-OOB] %s layer=%s ubatch=%s ep=%s/%s cannot read topk_ids: %s",
+            where, layer_idx, ubatch_idx, ep_rank, ep_world, ex)
+        return
+    if tmin < 0 or tmax >= moe_expert_num:
+        logger.warning(
+            "[FFN-MOE-OOB] %s layer=%s ubatch=%s ep=%s/%s topk_ids in [%s,%s] "
+            "not inside [0, %s) (n_routed_experts=%s). Likely corrupt recv / "
+            "EP desync before MoE.",
+            where, layer_idx, ubatch_idx, ep_rank, ep_world, tmin, tmax,
+            moe_expert_num, moe_expert_num)
+
+
 def _log_ffn_post_recv_moe_sync_diag(
     *,
     logger,
@@ -68,6 +102,7 @@ def _log_ffn_post_recv_moe_sync_diag(
     hidden_states: torch.Tensor,
     topk_ids: torch.Tensor | None,
     x_active_mask: torch.Tensor | None,
+    moe_expert_num: int | None = None,
 ) -> None:
     try:
         ep_rank = get_ep_group().rank_in_group
@@ -92,7 +127,7 @@ def _log_ffn_post_recv_moe_sync_diag(
     logger.info(
         "[FFN-POST-RECV-SYNC-DIAG] layer=%s/%s ubatch=%s ep=%s/%s dp_key=%s "
         "hid=%s topk_ids=%s dtype=%s ptr=0x%x post_sync_minmax=(%s,%s) "
-        "mask_sum=%s mask_dtype=%s",
+        "mask_sum=%s mask_dtype=%s n_routed=%s",
         layer_idx,
         num_layers - 1,
         ubatch_idx,
@@ -107,7 +142,17 @@ def _log_ffn_post_recv_moe_sync_diag(
         tmax,
         msum,
         mdtype,
+        moe_expert_num,
     )
+    if moe_expert_num is not None and isinstance(tmin, int) and isinstance(
+            tmax, int):
+        if tmin < 0 or tmax >= moe_expert_num:
+            logger.warning(
+                "[FFN-POST-RECV-SYNC-DIAG] OOB topk_ids layer=%s ubatch=%s ep=%s/%s "
+                "range=[%s,%s] vs n_routed=%s",
+                layer_idx, ubatch_idx, ep_rank, ep_world, tmin, tmax,
+                moe_expert_num,
+            )
 
 
 def _summarize_dp_metadata_list(dp_metadata_list: dict | None) -> str:
@@ -806,10 +851,18 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                                 msum = int(x_active_mask.sum().detach().cpu().item())
                             except Exception:
                                 msum = "<?>"
+                        tmin = tmax = None
+                        if topk_ids is not None and topk_ids.numel() > 0:
+                            try:
+                                tmin = int(topk_ids.min().detach().cpu().item())
+                                tmax = int(topk_ids.max().detach().cpu().item())
+                            except Exception:
+                                tmin = tmax = None
                         logger.info(
                             "[FFN-GRAPH-MTP-TRACE] after_recv: layer=%s/%s "
                             "ubatch=%s is_mtp_layer=%s hid=%s topk_w=%s topk_id=%s "
-                            "router_logits=%s x_active_mask_sum=%s group_list=%s",
+                            "topk_ids_minmax=%s router_logits=%s x_active_mask_sum=%s "
+                            "group_list=%s",
                             layer_idx,
                             self.num_layers - 1,
                             ubatch_idx,
@@ -817,11 +870,20 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                             tuple(hidden_states.shape),
                             tuple(topk_weights.shape) if topk_weights is not None else None,
                             tuple(topk_ids.shape) if topk_ids is not None else None,
+                            (tmin, tmax),
                             tuple(router_logits.shape)
                             if router_logits is not None else None,
                             msum,
                             tuple(group_list.shape) if group_list is not None else None,
                         )
+
+                    _maybe_warn_moe_topk_oob(
+                        topk_ids,
+                        self.n_routed_experts,
+                        where="after_recv",
+                        layer_idx=layer_idx,
+                        ubatch_idx=ubatch_idx,
+                    )
 
                     if (envs_ascend.VLLM_ASCEND_FFN_POST_RECV_SYNC_DIAG
                             and topk_ids is not None):
@@ -835,6 +897,7 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                             hidden_states=hidden_states,
                             topk_ids=topk_ids,
                             x_active_mask=x_active_mask,
+                            moe_expert_num=self.n_routed_experts,
                         )
 
                     # FFN compute: runs on default stream

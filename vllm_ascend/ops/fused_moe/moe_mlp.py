@@ -443,6 +443,25 @@ def dispatch_experts(
         "tp_rank_id": 0,
     }
 
+    if topk_ids is not None and topk_ids.numel() > 0:
+        try:
+            tmin_dispatch = int(topk_ids.min().detach().cpu().item())
+            tmax_dispatch = int(topk_ids.max().detach().cpu().item())
+        except Exception:
+            tmin_dispatch = tmax_dispatch = None
+    else:
+        tmin_dispatch = tmax_dispatch = None
+
+    if (envs_ascend.VLLM_ASCEND_FFN_MOE_OOB_WARN
+            and tmin_dispatch is not None and tmax_dispatch is not None):
+        if tmin_dispatch < 0 or tmax_dispatch >= moe_expert_num:
+            logger.warning(
+                "[FFN-MOE-OOB] dispatch_experts layer=%s ep=%s/%s topk_ids in [%s,%s] "
+                "not inside [0, %s) (moe_expert_num=%s).",
+                layer_idx, ep_rank_id, ep_rank_size, tmin_dispatch,
+                tmax_dispatch, moe_expert_num, moe_expert_num,
+            )
+
     if envs_ascend.VLLM_ASCEND_FFN_GRAPH_MTP_TRACE:
         msum = None
         if x_active_mask is not None:
@@ -450,20 +469,13 @@ def dispatch_experts(
                 msum = int(x_active_mask.sum().detach().cpu().item())
             except Exception:
                 msum = "<?>"
-        tmin = tmax = None
-        if topk_ids is not None and topk_ids.numel() > 0:
-            try:
-                tmin = int(topk_ids.min().detach().cpu().item())
-                tmax = int(topk_ids.max().detach().cpu().item())
-            except Exception:
-                tmin = tmax = None
         logger.info(
             "[FFN-GRAPH-MTP-TRACE] dispatch_experts: layer_idx=%s x=%s topk_ids=%s "
             "ids_range=%s topk_w=%s x_active_mask_sum=%s ep=%s/%s moe_n=%s",
             layer_idx,
             tuple(hidden_states.shape),
             tuple(topk_ids.shape) if topk_ids is not None else None,
-            (tmin, tmax),
+            (tmin_dispatch, tmax_dispatch),
             tuple(topk_weights.shape) if topk_weights is not None else None,
             msum,
             ep_rank_id,

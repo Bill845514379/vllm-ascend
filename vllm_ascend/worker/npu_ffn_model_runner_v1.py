@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import os
 import time
 import gc
 from typing import TYPE_CHECKING, Any, Optional
@@ -452,6 +453,109 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
         else:
             return attn_num_tokens
 
+    def _log_afd_ffn_moe_index_checks(
+        self,
+        layer_idx: int,
+        ubatch_idx: int,
+        recv_output: Any,
+        dp_metadata_list: dict | None,
+    ) -> None:
+        """Log illegal MoE indices (always warns). Verbose digest for layers 2..5
+        when VLLM_ASCEND_AFD_MOE_INDEX_DIAG=1."""
+        rank = getattr(self.connector, "rank", -1)
+        diag = os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", "0") == "1"
+        focus = 2 <= layer_idx <= 5
+        hs = recv_output.hidden_states
+        if hs is None or hs.dim() != 2:
+            return
+        num_rows, _hidden = hs.shape
+        n_routed = self.model_config.hf_config.n_routed_experts
+        keys = list(dp_metadata_list.keys()) if dp_metadata_list else None
+
+        if layer_idx >= self.first_k_dense_replace:
+            tid = recv_output.topk_ids
+            if tid is not None and tid.numel() > 0:
+                bad = (tid < 0) | (tid >= n_routed)
+                if bool(bad.any().item()):
+                    tmin = int(tid.min().detach().cpu())
+                    tmax = int(tid.max().detach().cpu())
+                    nb = int(bad.sum().detach().cpu())
+                    logger.warning(
+                        "[AFD-FFN] topk_ids out of [0, n_routed): connector_rank=%s "
+                        "layer_idx=%s ubatch_idx=%s n_routed=%s min=%s max=%s "
+                        "bad_count=%s topk_shape=%s hs_rows=%s dp_keys=%s",
+                        rank,
+                        layer_idx,
+                        ubatch_idx,
+                        n_routed,
+                        tmin,
+                        tmax,
+                        nb,
+                        tuple(tid.shape),
+                        num_rows,
+                        keys,
+                    )
+                elif diag and focus:
+                    tmin = int(tid.min().detach().cpu())
+                    tmax = int(tid.max().detach().cpu())
+                    logger.info(
+                        "[AFD-FFN] topk_ids in range: connector_rank=%s layer_idx=%s "
+                        "ubatch_idx=%s shape=%s min=%s max=%s hs_rows=%s",
+                        rank,
+                        layer_idx,
+                        ubatch_idx,
+                        tuple(tid.shape),
+                        tmin,
+                        tmax,
+                        num_rows,
+                    )
+            ri = recv_output.row_idx
+            if ri is not None and ri.numel() > 0:
+                rmin = int(ri.min().detach().cpu())
+                rmax = int(ri.max().detach().cpu())
+                if rmax >= num_rows or rmin < 0:
+                    logger.warning(
+                        "[AFD-FFN] row_idx out of range for hidden_states: "
+                        "connector_rank=%s layer_idx=%s ubatch_idx=%s "
+                        "row_min=%s row_max=%s hs_rows=%s row_shape=%s",
+                        rank,
+                        layer_idx,
+                        ubatch_idx,
+                        rmin,
+                        rmax,
+                        num_rows,
+                        tuple(ri.shape),
+                    )
+                elif diag and focus:
+                    logger.info(
+                        "[AFD-FFN] row_idx: connector_rank=%s layer_idx=%s ubatch_idx=%s "
+                        "min=%s max=%s hs_rows=%s",
+                        rank,
+                        layer_idx,
+                        ubatch_idx,
+                        rmin,
+                        rmax,
+                        num_rows,
+                    )
+
+        if diag and focus:
+            tw = recv_output.topk_weights
+            xm = recv_output.x_active_mask
+            logger.info(
+                "[AFD-FFN] recv shapes connector_rank=%s layer_idx=%s ubatch_idx=%s "
+                "dp_keys=%s hs=%s tw=%s tid=%s x_active_mask=%s atten_batch_size=%s",
+                rank,
+                layer_idx,
+                ubatch_idx,
+                keys,
+                tuple(hs.shape),
+                tuple(tw.shape) if tw is not None else None,
+                tuple(recv_output.topk_ids.shape)
+                if recv_output.topk_ids is not None else None,
+                tuple(xm.shape) if xm is not None else None,
+                recv_output.atten_batch_size,
+            )
+
     def _ffn_forward(self,
                      aclgraph_runtime_mode: Optional[CUDAGraphMode] = None,
                      dp_metadata_list: dict | None = None):
@@ -498,6 +602,9 @@ class NPUFFNModelRunner(NPUModelRunner,GPUFFNModelRunner):
                         self.connector.update_metadata(afd_connector_data, recv_output)
                     print(f'{self.connector_name} recv_attn_output success ,layer id is {layer_idx}, '
                         f'ubatch_idx is {ubatch_idx} recv_output:{recv_output.hidden_states.shape}', flush=True)
+
+                    self._log_afd_ffn_moe_index_checks(
+                        layer_idx, ubatch_idx, recv_output, dp_metadata_list)
 
                     hidden_states = recv_output.hidden_states
                     dynamic_scales = recv_output.dynamic_scales

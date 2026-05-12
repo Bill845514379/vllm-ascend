@@ -1,8 +1,10 @@
+import os
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from vllm.distributed.afd_transfer.afd_connector import (AFDConnectorBase, AFDConnectorFactory,
                                                          AFDConnectorMetadata)
+from vllm.logger import init_logger
 
 __all__ = ["AFDConnectorBase", "AFDConnectorMetadata", "AFDConnectorFactory"]
 
@@ -29,6 +31,7 @@ from vllm.forward_context import ForwardContext, get_forward_context
 
 from vllm_ascend.utils import npu_stream_switch_within_graph
 
+logger = init_logger(__name__)
 
 # vLLM's TorchCompileWithNoGuardsWrapper rejects @torch._dynamo.disable callees
 # inside the compiled region; keep scalar tensor reads traceable where possible.
@@ -543,13 +546,76 @@ class CAMP2PAFDConnector(AFDConnectorBase):
                 group_size = self.attn_size // self.ffn_size
                 start_idx = self.rank * group_size
                 end_idx = start_idx + group_size
-                max_num_tokens = sum(num_tokens_across_dp[start_idx:end_idx])
+                n_dp_slots = len(num_tokens_across_dp)
+                if end_idx > n_dp_slots:
+                    logger.warning(
+                        "[AFD CAMP2P create_recv_metadata] num_tokens slice OOB: "
+                        "layer_idx=%s ubatch_idx=%s rank=%s start_idx=%s end_idx=%s "
+                        "len(num_tokens_across_dp)=%s num_tokens_across_dp=%s "
+                        "attn_size=%s ffn_size=%s group_size=%s dp_metadata_list_keys=%s",
+                        layer_idx,
+                        ubatch_idx,
+                        self.rank,
+                        start_idx,
+                        end_idx,
+                        n_dp_slots,
+                        num_tokens_across_dp,
+                        self.attn_size,
+                        self.ffn_size,
+                        group_size,
+                        list(dp_metadata_list.keys())
+                        if dp_metadata_list is not None else None,
+                    )
+                slice_vals = num_tokens_across_dp[start_idx:end_idx]
+                max_num_tokens = sum(slice_vals)
+                if max_num_tokens == 0:
+                    logger.warning(
+                        "[AFD CAMP2P create_recv_metadata] max_num_tokens==0 from "
+                        "num_tokens slice: layer_idx=%s ubatch_idx=%s rank=%s "
+                        "start_idx=%s end_idx=%s slice=%s len(dp)=%s end_oob=%s dp_keys=%s",
+                        layer_idx,
+                        ubatch_idx,
+                        self.rank,
+                        start_idx,
+                        end_idx,
+                        slice_vals,
+                        n_dp_slots,
+                        end_idx > n_dp_slots,
+                        list(dp_metadata_list.keys())
+                        if dp_metadata_list is not None else None,
+                    )
+                diag = os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", "0") == "1"
+                if diag and 2 <= layer_idx <= 5:
+                    logger.info(
+                        "[AFD CAMP2P create_recv_metadata] layer_idx=%s ubatch_idx=%s "
+                        "rank=%s group_size=%s start_idx=%s end_idx=%s "
+                        "max_num_tokens=%s num_tokens_across_dp=%s",
+                        layer_idx,
+                        ubatch_idx,
+                        self.rank,
+                        group_size,
+                        start_idx,
+                        end_idx,
+                        max_num_tokens,
+                        num_tokens_across_dp,
+                    )
                 print(f"rank {self.rank} get max_num_tokens {max_num_tokens} from dp_metadata_list with group_size {group_size}")
             else:
                 max_num_tokens = kwargs.get('max_num_tokens', 0)
                 print(f"rank {self.rank} get max_num_tokens {max_num_tokens} from kwargs due to attn_size {self.attn_size} and ffn_size {self.ffn_size}")
         else:
             max_num_tokens = kwargs.get('max_num_tokens', 0)
+            if dp_metadata_list is not None:
+                logger.warning(
+                    "[AFD CAMP2P create_recv_metadata] ubatch_idx not in dp_metadata_list "
+                    "(falling back to kwargs max_num_tokens=%s): layer_idx=%s ubatch_idx=%s "
+                    "rank=%s keys=%s",
+                    max_num_tokens,
+                    layer_idx,
+                    ubatch_idx,
+                    self.rank,
+                    list(dp_metadata_list.keys()),
+                )
 
         hf_config = self.config.model_config.hf_config
 

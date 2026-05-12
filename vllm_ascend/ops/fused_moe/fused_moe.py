@@ -16,6 +16,7 @@
 #
 from dataclasses import dataclass, field
 from functools import wraps
+import os
 from typing import Any, Callable, Optional
 
 import torch
@@ -870,6 +871,46 @@ class AscendSharedFusedMoE(SharedFusedMoE, AscendFusedMoE):
 
         use_int8_w8a8, use_int4_w4a8, w1_scale, w2_scale, w1_scale_bias, w2_scale_bias, w1_offset, w2_offset = \
             _detect_quantization_and_get_params(layer)
+        if topk_ids is not None and moe_expert_num > 0 and topk_ids.numel() > 0:
+            bad = (topk_ids < 0) | (topk_ids >= moe_expert_num)
+            if bool(bad.any().item()):
+                tmin = int(topk_ids.min().detach().cpu())
+                tmax = int(topk_ids.max().detach().cpu())
+                nb = int(bad.sum().detach().cpu())
+                logger.warning(
+                    "[AFD fused_experts1] topk_ids OOB before dispatch: "
+                    "layer_idx=%s ep_rank_id=%s ep_rank_size=%s moe_expert_num=%s "
+                    "min=%s max=%s bad_count=%s topk_shape=%s hs_shape=%s group_ep=%s",
+                    layer_idx,
+                    ep_rank_id,
+                    ep_rank_size,
+                    moe_expert_num,
+                    tmin,
+                    tmax,
+                    nb,
+                    tuple(topk_ids.shape),
+                    tuple(hidden_states.shape),
+                    group_ep,
+                )
+            elif (os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", "0") == "1"
+                  and layer_idx is not None and 2 <= layer_idx <= 5):
+                tmin = int(topk_ids.min().detach().cpu())
+                tmax = int(topk_ids.max().detach().cpu())
+                logger.info(
+                    "[AFD fused_experts1] pre-dispatch layer_idx=%s ep_rank_id=%s "
+                    "ep_rank_size=%s moe_expert_num=%s topk_shape=%s topk_min=%s "
+                    "topk_max=%s hs_shape=%s xmask_shape=%s group_ep=%s",
+                    layer_idx,
+                    ep_rank_id,
+                    ep_rank_size,
+                    moe_expert_num,
+                    tuple(topk_ids.shape),
+                    tmin,
+                    tmax,
+                    tuple(hidden_states.shape),
+                    tuple(x_active_mask.shape) if x_active_mask is not None else None,
+                    group_ep,
+                )
         torch_npu.npu.config.allow_internal_format = True
         # w1 = layer.w13_weight.to(torch.int8)
         # w2 = layer.w2_weight.to(torch.int8)

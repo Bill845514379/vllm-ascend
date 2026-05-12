@@ -169,6 +169,9 @@ env_variables: Dict[str, Callable[[], Any]] = {
     # AFD: log topk indices at cam_send → a2e boundary (see VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG).
     "VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG":
     lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_CAM_SEND_TOPK_LOG", '0'))),
+    # AFD Attention: runner + ForwardContext + pad + cam_send row counts (print only).
+    "VLLM_ASCEND_AFD_ATTN_WIRE_LOG":
+    lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_ATTN_WIRE_LOG", '0'))),
     # AFD FFN: after recv_attn_output, log topk min/max / OOB (verbose when =1).
     "VLLM_ASCEND_AFD_MOE_INDEX_DIAG":
     lambda: bool(int(os.getenv("VLLM_ASCEND_AFD_MOE_INDEX_DIAG", '0'))),

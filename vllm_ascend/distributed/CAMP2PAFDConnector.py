@@ -104,29 +104,84 @@ def _pad_attn_tensors_to_dp_metadata(
     compute_gate: int,
 ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Align Attention send tensors with DPMetadata before a2e (torch_binding uses x.size(0))."""
+    from vllm_ascend.worker.afd_wire_log import log_afd_attn_wire_pad
+
+    row0_in = int(hidden_states.shape[0])
     ctx = get_forward_context()
+    _trace = _in_torch_compile_trace()
     if ctx is None:
+        if not _trace:
+            log_afd_attn_wire_pad(
+                tag="pad_attn",
+                row0=row0_in,
+                expected=None,
+                expected_src="no_forward_ctx",
+                compute_gate=compute_gate,
+                action="no_op",
+            )
         return hidden_states, topk_weights, topk_idx
     dm = _active_dp_metadata_from_forward_ctx(ctx)
     if dm is None:
+        if not _trace:
+            log_afd_attn_wire_pad(
+                tag="pad_attn",
+                row0=row0_in,
+                expected=None,
+                expected_src="no_dp_metadata",
+                compute_gate=compute_gate,
+                action="no_op",
+            )
         return hidden_states, topk_weights, topk_idx
     # Prefer int expected rows stashed on ForwardContext when the runner builds
     # the batch (see vllm forward_context / npu_ubatch_wrapper). Reading
     # num_tokens_across_dp_cpu inside torch.compile makes expected a
     # data-dependent scalar (Dynamo UserError on `if actual >= expected`).
     expected = getattr(ctx, "afd_expected_a2e_rows", None)
+    exp_src = "ctx.afd_expected_a2e_rows" if expected is not None else ""
     if expected is None:
         expected = getattr(ctx, "num_tokens", None)
+        if expected is not None:
+            exp_src = "ctx.num_tokens"
     if expected is None:
         expected = _expected_local_attn_rows_for_a2e(dm)
+        if expected is not None:
+            exp_src = "dp_metadata.num_tokens_across_dp_cpu"
     if expected is None:
+        if not _trace:
+            log_afd_attn_wire_pad(
+                tag="pad_attn",
+                row0=row0_in,
+                expected=None,
+                expected_src="none",
+                compute_gate=compute_gate,
+                action="no_op_missing_expected",
+            )
         return hidden_states, topk_weights, topk_idx
-    row0 = hidden_states.shape[0]
-    if row0 >= expected:
+    exp_i = int(expected)
+    row0 = row0_in
+    if row0 >= exp_i:
+        if not _trace:
+            log_afd_attn_wire_pad(
+                tag="pad_attn",
+                row0=row0,
+                expected=exp_i,
+                expected_src=exp_src,
+                compute_gate=compute_gate,
+                action="no_pad_row0_gte_expected",
+            )
         return hidden_states, topk_weights, topk_idx
     if row0 <= 0:
+        if not _trace:
+            log_afd_attn_wire_pad(
+                tag="pad_attn",
+                row0=row0,
+                expected=exp_i,
+                expected_src=exp_src,
+                compute_gate=compute_gate,
+                action="no_pad_row0_le_0",
+            )
         return hidden_states, topk_weights, topk_idx
-    pad_rows = expected - row0
+    pad_rows = exp_i - row0
     # Ghost rows: duplicate last token hidden + routing; zero gate weights so
     # they contribute nothing (avoids mass-routing padded rows to expert 0).
     pad_hs = hidden_states[-1:].expand(pad_rows, hidden_states.shape[1]).clone()
@@ -138,6 +193,17 @@ def _pad_attn_tensors_to_dp_metadata(
             (pad_rows, k), dtype=topk_weights.dtype, device=topk_weights.device)
         topk_idx = torch.cat([topk_idx, pad_ids], dim=0)
         topk_weights = torch.cat([topk_weights, pad_w], dim=0)
+    if not _trace:
+        log_afd_attn_wire_pad(
+            tag="pad_attn",
+            row0=row0_in,
+            expected=exp_i,
+            expected_src=exp_src,
+            compute_gate=compute_gate,
+            action="padded_clone_last_row",
+            pad_rows=pad_rows,
+            new_row0=int(hidden_states.shape[0]),
+        )
     return hidden_states, topk_weights, topk_idx
 
 
@@ -841,6 +907,25 @@ def cam_send_attn_output_impl(hidden_states: torch.Tensor,
     h = cam_metadata.h
     k = cam_metadata.k
     aiv_num = cam_metadata.aiv_num
+
+    try:
+        from vllm_ascend.worker.afd_wire_log import log_afd_attn_wire
+
+        _fctx = get_forward_context()
+        log_afd_attn_wire(
+            "cam_send_impl",
+            _fctx,
+            connector_rank=int(rank),
+            hs_rows=int(hidden_states.shape[0]),
+            topk_rows=int(topk_idx.shape[0]) if topk_idx is not None else None,
+            tw_rows=int(topk_weights.shape[0])
+            if topk_weights is not None else None,
+            compute_gate=int(compute_gate),
+            meta_batch_size=int(batch_size),
+            meta_moe_expert_num=int(moe_expert_num),
+        )
+    except Exception:
+        pass
 
     groupEp = _get_group_ep(ubatch_idx, hccl_comm_name, hccl_comm_name2, hccl_comm_name3)
 

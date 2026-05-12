@@ -122,6 +122,8 @@ from vllm_ascend.ascend_forward_context import (  # isort: skip
     set_ascend_forward_context, set_mc2_mask, set_mc2_tokens_capacity)
 
 from vllm_ascend.worker.npu_ubatch_wrapper import UBatchWrapper
+from vllm_ascend.worker.afd_wire_log import (format_batch_descriptor, format_nta,
+                                            log_afd_attn_wire)
 from vllm.v1.worker.ubatch_utils import maybe_create_ubatch_slices, UBatchSlice, UBatchSlices, check_ubatch_thresholds
 
 AttnMetadataDict: TypeAlias = dict[str, AttentionMetadata]
@@ -1697,6 +1699,18 @@ class NPUModelRunner(GPUModelRunner):
                                                disable_full=synced_cudagraph_mode <= CUDAGraphMode.PIECEWISE.value)
         num_input_tokens = batch_descriptor.num_tokens
 
+        log_afd_attn_wire(
+            "execute_model_pre_forward",
+            None,
+            maybe_padded_num_tokens=maybe_padded_num_tokens,
+            num_input_tokens_after_bd=num_input_tokens,
+            scheduled_total=int(scheduler_output.total_num_scheduled_tokens),
+            ubatch_slices_is_none=ubatch_slices is None,
+            batch_descriptor=format_batch_descriptor(batch_descriptor),
+            num_tokens_across_dp=format_nta(num_tokens_across_dp),
+            aclgraph_mode=str(aclgraph_runtime_mode),
+        )
+
         if self.ascend_config.enable_async_exponential:
             self.sampler.do_async_exponential(
                 b_s=logits_indices.shape[0],
@@ -2578,6 +2592,17 @@ class NPUModelRunner(GPUModelRunner):
                         hidden_states[dummy_indices])
             logger.info(f'num_tokens is {num_tokens_padded},num_tokens_across_dp is {num_tokens_across_dp}')
             afd_metadata = self._build_afd_metadata(ubatch_slices, num_tokens_padded)
+            log_afd_attn_wire(
+                "attn_dummy_run_pre_forward",
+                None,
+                num_tokens_padded=num_tokens_padded,
+                num_reqs_padded=num_reqs_padded,
+                ubatch_slices_is_none=ubatch_slices_padded is None,
+                batch_descriptor=format_batch_descriptor(batch_descriptor),
+                num_tokens_across_dp=format_nta(num_tokens_across_dp),
+                aclgraph_mode=str(cudagraph_runtime_mode),
+                is_graph_capturing=is_graph_capturing,
+            )
             with set_ascend_forward_context(
                     attn_metadata,
                     self.vllm_config,

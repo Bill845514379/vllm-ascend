@@ -157,6 +157,17 @@ def set_ascend_forward_context(
                 mc2_mask[num_actual_tokens:] = False
                 forward_context.mc2_mask = mc2_mask
 
+        from vllm_ascend.worker.afd_wire_log import format_nta, log_afd_attn_wire
+
+        log_afd_attn_wire(
+            "ascend_ctx_ready",
+            forward_context,
+            num_tokens_arg=num_tokens,
+            num_tokens_across_dp_in=format_nta(num_tokens_across_dp),
+            max_tokens_across_dp=getattr(forward_context, "max_tokens_across_dp", None),
+            padded_num_tokens=getattr(forward_context, "padded_num_tokens", None),
+        )
+
         try:
             yield
         finally:

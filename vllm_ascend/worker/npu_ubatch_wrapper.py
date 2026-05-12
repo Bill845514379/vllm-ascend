@@ -341,6 +341,18 @@ class UBatchWrapper(GPUUBatchWrapper):
                 forward_context.afd_expected_a2e_rows = int(
                     ubatch_slice.num_tokens)
             forward_context.afd_comm_event = torch.npu.Event()
+
+            from vllm_ascend.worker.afd_wire_log import format_nta, log_afd_attn_wire
+
+            log_afd_attn_wire(
+                "ubatch_make_metadata",
+                forward_context,
+                ubatch_slice_i=i,
+                slice_num_tokens=int(ubatch_slice.num_tokens),
+                token_slice=str(ubatch_slice.token_slice),
+                ubatch_nta=format_nta(ubatch_num_tokens_across_dp),
+            )
+
             forward_contexts.append(forward_context)
 
         ubatch_ctxs = make_ubatch_contexts(

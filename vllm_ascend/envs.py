@@ -166,6 +166,13 @@ env_variables: Dict[str, Callable[[], Any]] = {
     # Whether to anbale balance scheduling
     "VLLM_ASCEND_BALANCE_SCHEDULING":
     lambda: bool(int(os.getenv("VLLM_ASCEND_BALANCE_SCHEDULING", '0'))),
+    # Log UBatchWrapper graph dispatch mode (FULL/NONE/PIECEWISE).
+    # 0: disabled, 1: log every dispatch, 2: periodic summary (for high concurrency).
+    "VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG":
+    lambda: int(os.getenv("VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG", '0')),
+    # Summary interval when VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG=2.
+    "VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG_INTERVAL":
+    lambda: int(os.getenv("VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG_INTERVAL", '500')),
 }
 
 # end-env-vars-definition

@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import threading
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -9,6 +10,7 @@ import copy
 
 import torch
 
+import vllm_ascend.envs as envs_ascend
 from vllm_ascend.compilation.acl_graph import ACLGraphWrapper
 from vllm.config import CUDAGraphMode, VllmConfig
 from vllm.distributed.device_communicators.pynccl_allocator import (
@@ -23,6 +25,11 @@ from vllm.v1.worker.gpu_ubatch_wrapper import (
 )
 
 logger = init_logger(__name__)
+
+_GRAPH_MODE_LOG_LOCK = threading.Lock()
+_GRAPH_MODE_DISPATCH_COUNTER = Counter()
+_GRAPH_MODE_RUNTIME_COUNTER = Counter()
+_GRAPH_MODE_LOG_CALLS = 0
 
 
 @dataclass
@@ -112,6 +119,62 @@ class UBatchWrapper(GPUUBatchWrapper):
         self.sm_control = _EmptyContextManager()
         
         self.device = device
+        self.runtime_mode = runtime_mode
+
+    def _log_graph_dispatch(
+        self,
+        *,
+        dispatch_path: str,
+        cudagraph_runtime_mode: CUDAGraphMode,
+        effective_mode: Optional[CUDAGraphMode] = None,
+        num_tokens: Optional[int] = None,
+        num_ubatches: Optional[int] = None,
+        has_cached_graph: Optional[bool] = None,
+    ) -> None:
+        log_mode = envs_ascend.VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG
+        if log_mode == 0:
+            return
+
+        runtime_mode_name = cudagraph_runtime_mode.name
+        effective_mode_name = (
+            effective_mode.name if effective_mode is not None else runtime_mode_name
+        )
+        with _GRAPH_MODE_LOG_LOCK:
+            global _GRAPH_MODE_LOG_CALLS
+            _GRAPH_MODE_LOG_CALLS += 1
+            _GRAPH_MODE_DISPATCH_COUNTER[dispatch_path] += 1
+            _GRAPH_MODE_RUNTIME_COUNTER[effective_mode_name] += 1
+            call_idx = _GRAPH_MODE_LOG_CALLS
+
+            if log_mode == 1:
+                logger.info(
+                    "UBatchWrapper graph dispatch: path=%s, "
+                    "runtime_mode=%s, effective_mode=%s, "
+                    "wrapper_mode=%s, num_tokens=%s, num_ubatches=%s, "
+                    "has_cached_graph=%s, thread=%s",
+                    dispatch_path,
+                    runtime_mode_name,
+                    effective_mode_name,
+                    self.runtime_mode.name,
+                    num_tokens,
+                    num_ubatches,
+                    has_cached_graph,
+                    threading.get_ident(),
+                )
+                return
+
+            interval = envs_ascend.VLLM_ASCEND_UBATCH_GRAPH_MODE_LOG_INTERVAL
+            if call_idx % interval != 0:
+                return
+            logger.info(
+                "UBatchWrapper graph dispatch summary (last %s calls, total=%s): "
+                "dispatch=%s, effective_mode=%s, wrapper_mode=%s",
+                interval,
+                call_idx,
+                dict(_GRAPH_MODE_DISPATCH_COUNTER),
+                dict(_GRAPH_MODE_RUNTIME_COUNTER),
+                self.runtime_mode.name,
+            )
 
     @staticmethod
     def _create_sm_control_context(vllm_config: VllmConfig):
@@ -374,15 +437,28 @@ class UBatchWrapper(GPUUBatchWrapper):
             # num_tokens, we don't have a non-ubatched one. Without this
             # check, the graph wrapper will try to capture a graph
             # for this shape during a normal run.
+            effective_mode = cudagraph_runtime_mode
             if cudagraph_runtime_mode is CUDAGraphMode.FULL:
                 assert batch_descriptor is not None
                 # if batch_descriptor.num_tokens in self.aclgraphs:
-                #     cudagraph_runtime_mode = CUDAGraphMode.NONE
+                #     effective_mode = CUDAGraphMode.NONE
 
             if cudagraph_runtime_mode in (CUDAGraphMode.NONE,
                                           CUDAGraphMode.PIECEWISE):
+                self._log_graph_dispatch(
+                    dispatch_path="no_ubatch_eager",
+                    cudagraph_runtime_mode=cudagraph_runtime_mode,
+                    effective_mode=effective_mode,
+                    num_tokens=getattr(batch_descriptor, "num_tokens", None),
+                )
                 return self.runnable(*args, **kwargs)
             else:
+                self._log_graph_dispatch(
+                    dispatch_path="no_ubatch_aclgraph",
+                    cudagraph_runtime_mode=cudagraph_runtime_mode,
+                    effective_mode=effective_mode,
+                    num_tokens=getattr(batch_descriptor, "num_tokens", None),
+                )
                 assert self.aclgraph_wrapper is not None
                 return self.aclgraph_wrapper(*args, **kwargs)
 
@@ -411,8 +487,17 @@ class UBatchWrapper(GPUUBatchWrapper):
             )
             forward_context.afd_metadata = afd_metadata
 
-        if num_tokens not in self.aclgraphs \
+        has_cached_graph = num_tokens in self.aclgraphs
+        if not has_cached_graph \
             and cudagraph_runtime_mode is CUDAGraphMode.FULL:
+            self._log_graph_dispatch(
+                dispatch_path="ubatch_capture",
+                cudagraph_runtime_mode=cudagraph_runtime_mode,
+                effective_mode=CUDAGraphMode.FULL,
+                num_tokens=num_tokens,
+                num_ubatches=len(ubatch_slices),
+                has_cached_graph=False,
+            )
             ubatch_metadata = self._make_ubatch_metadata(
                 ubatch_slices=ubatch_slices,
                 attn_metadata=attn_metadata,
@@ -426,13 +511,28 @@ class UBatchWrapper(GPUUBatchWrapper):
                 aclgraph_runtime_mode=CUDAGraphMode.NONE,
                 afd_metadata=afd_metadata)
             return self._capture_ubatches(ubatch_metadata, self.model)
-        elif num_tokens in self.aclgraphs \
+        elif has_cached_graph \
             and cudagraph_runtime_mode is CUDAGraphMode.FULL:
+            self._log_graph_dispatch(
+                dispatch_path="ubatch_replay",
+                cudagraph_runtime_mode=cudagraph_runtime_mode,
+                effective_mode=CUDAGraphMode.FULL,
+                num_tokens=num_tokens,
+                num_ubatches=len(ubatch_slices),
+                has_cached_graph=True,
+            )
             aclgraph_metadata = self.aclgraphs[num_tokens]
             aclgraph_metadata.aclgraph.replay()
-            print("UBatchWrapper replay")
             return aclgraph_metadata.outputs
         else:
+            self._log_graph_dispatch(
+                dispatch_path="ubatch_eager",
+                cudagraph_runtime_mode=cudagraph_runtime_mode,
+                effective_mode=CUDAGraphMode.NONE,
+                num_tokens=num_tokens,
+                num_ubatches=len(ubatch_slices),
+                has_cached_graph=has_cached_graph,
+            )
             ubatch_metadata = self._make_ubatch_metadata(
                 ubatch_slices=ubatch_slices,
                 attn_metadata=attn_metadata,

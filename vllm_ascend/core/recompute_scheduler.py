@@ -518,7 +518,7 @@ class RecomputeScheduler(Scheduler):
                 # as the running queue.
                 if self.is_mtp_kv_consumer and request.spec_token_ids:
                     num_scheduled_spec_tokens = (
-                        num_new_tokens + request.num_computed_tokens -
+                        num_new_tokens + num_computed_tokens -
                         request.num_tokens - request.num_output_placeholders)
                     if num_scheduled_spec_tokens > 0:
                         # Trim spec_token_ids list to num_scheduled_spec_tokens.

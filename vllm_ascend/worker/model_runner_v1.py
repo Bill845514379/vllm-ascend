@@ -799,6 +799,25 @@ class NPUModelRunner(GPUModelRunner):
         uniform_decode = (max_num_scheduled_tokens == self.uniform_decode_query_len
                           ) and (total_num_scheduled_tokens == num_reqs * max_num_scheduled_tokens)
 
+        # MTP + graph + first decode round.
+        # Use num_prompt_tokens (not num_tokens_no_spec): MTP keeps a draft slot at
+        # num_computed+1, matching scheduler's num_computed == num_tokens at step 0.
+        is_mtp_graph_first_decode_round = False
+        if (self.speculative_config is not None
+                and self.speculative_config.method == "mtp"
+                and self._use_aclgraph() and not with_prefill
+                and attn_state == AscendAttentionState.SpecDecoding
+                and num_reqs > 0):
+            num_computed = self.input_batch.num_computed_tokens_cpu[:num_reqs]
+            num_prompt = self.input_batch.num_prompt_tokens[:num_reqs]
+            is_mtp_graph_first_decode_round = np.all(num_computed == num_prompt)
+            print(f"num_computed: {num_computed}")
+            print(f"num_prompt: {num_prompt}")
+        print(
+            f"is_mtp_graph_first_decode_round: {is_mtp_graph_first_decode_round}",
+            flush=True,
+        )
+
         (
             cudagraph_mode,
             batch_descriptor,

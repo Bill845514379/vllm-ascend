@@ -4,13 +4,9 @@ from typing import Optional
 import torch
 from vllm.triton_utils import HAS_TRITON, triton
 from vllm.v1.sample.metadata import SamplingMetadata
-from vllm.v1.sample.rejection_sampler import (
-    GREEDY_TEMPERATURE,
-    MAX_SPEC_LEN,
-    PLACEHOLDER_TOKEN_ID,
-    _maybe_log_spec_rejection_sampling_mode,
-    generate_uniform_probs,
-)
+from vllm.v1.sample.rejection_sampler import (GREEDY_TEMPERATURE, MAX_SPEC_LEN,
+                                              PLACEHOLDER_TOKEN_ID,
+                                              generate_uniform_probs)
 
 from vllm_ascend.ops.triton.reject_sample import (
     cal_grid_and_block_size, expand_triton,
@@ -108,11 +104,6 @@ def rejection_sample(
     assert target_probs.is_contiguous()
     assert bonus_token_ids.is_contiguous()
     assert target_probs.shape == (num_tokens, vocab_size)
-
-    if num_tokens > 0:
-        _maybe_log_spec_rejection_sampling_mode(
-            sampling_metadata, num_draft_tokens
-        )
 
     # When num_speculative_tokens>=3, using block verify.
     using_block_verify = max_spec_len >= 3

@@ -9,9 +9,7 @@ from vllm.v1.sample.rejection_sampler import (
     MAX_SPEC_LEN,
     PLACEHOLDER_TOKEN_ID,
     _maybe_log_spec_rejection_sampling_mode,
-    build_spec_test_is_greedy_override,
     generate_uniform_probs,
-    spec_rejection_test_override_active,
 )
 
 from vllm_ascend.ops.triton.reject_sample import (
@@ -127,25 +125,13 @@ def rejection_sample(
     )
     output_token_ids.fill_(PLACEHOLDER_TOKEN_ID)
 
-    test_override_active = spec_rejection_test_override_active()
-    is_greedy_override = build_spec_test_is_greedy_override(
-        batch_size,
-        device,
-        sampling_metadata.generators,
-    )
-    if is_greedy_override is not None:
-        is_greedy = is_greedy_override
-    elif sampling_metadata.all_greedy:
+    if sampling_metadata.all_greedy:
         is_greedy = None
     else:
         is_greedy = sampling_metadata.temperature == GREEDY_TEMPERATURE
     if HAS_TRITON:
         grid, block_size = cal_grid_and_block_size(batch_size)
-    # Test override may mark a subset as greedy even when the batch is random.
-    run_greedy_rejection = (
-        not sampling_metadata.all_random or test_override_active
-    )
-    if run_greedy_rejection:
+    if not sampling_metadata.all_random:
         # Rejection sampling for greedy sampling requests.
         target_argmax = target_probs.argmax(dim=-1)
         if HAS_TRITON:
@@ -156,13 +142,8 @@ def rejection_sample(
                                                 bonus_token_ids, is_greedy,
                                                 max_spec_len, grid, block_size)
         else:
-            use_spec_len_1_fast_path = (
-                min(num_draft_tokens) == 1
-                and max(num_draft_tokens) == 1
-                and sampling_metadata.all_greedy
-                and not test_override_active
-            )
-            if use_spec_len_1_fast_path:
+            if min(num_draft_tokens) == 1 and max(
+                    num_draft_tokens) == 1 and sampling_metadata.all_greedy:
                 rejection_greedy_sample_spec_len_1_pytorch(
                     output_token_ids,
                     draft_token_ids,
@@ -180,7 +161,7 @@ def rejection_sample(
                     max_spec_len,
                     is_greedy,
                 )
-        if sampling_metadata.all_greedy and not test_override_active:
+        if sampling_metadata.all_greedy:
             return output_token_ids
 
     # Generate uniform probabilities for rejection sampling.

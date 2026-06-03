@@ -1,4 +1,4 @@
-# Adapt from https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu/spec_decode/probabilistic_rejection_sampler_utils.py
+# Adapt from https://github.com/vllm-project/vllm/blob/main/vllm/v1/worker/gpu/spec_decode/rejection_sampler_utils.py
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 #
@@ -19,7 +19,7 @@
 
 import torch
 from vllm.triton_utils import tl, triton
-from vllm.v1.worker.gpu.spec_decode.probabilistic_rejection_sampler_utils import (
+from vllm.v1.worker.gpu.spec_decode.rejection_sampler_utils import (
     _compute_block_stats_kernel,
     _compute_global_lse,
     _insert_resampled_kernel,
@@ -312,7 +312,7 @@ def _probabilistic_rejection_kernel(
     tl.store(draft_rejected_logsumexp_ptr + req_idx, draft_lse)
 
 
-def probabilistic_rejection_sample(
+def rejection_sample(
     # [num_logits, V]
     target_logits: torch.Tensor,
     # [max_num_reqs, num_speculative_steps, V]
@@ -336,7 +336,11 @@ def probabilistic_rejection_sample(
     num_speculative_steps: int,
     # [num_speculative_steps]
     synthetic_conditional_rates: torch.Tensor | None = None,
+    use_fp64: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    if use_fp64:
+        raise NotImplementedError("FP64 rejection sampling is not supported on NPU.")
+
     if synthetic_conditional_rates is not None:
         # Synthetic rejection sampling needs tl_rand64, which NPU Triton does
         # not support. The greedy fallback below would silently use u=0.0 and

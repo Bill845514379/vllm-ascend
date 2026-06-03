@@ -20,7 +20,16 @@ import torch_npu
 from einops import rearrange
 from vllm.forward_context import get_forward_context
 from vllm.model_executor.layers.fla.ops.l2norm import l2norm_fwd
-from vllm.model_executor.layers.mamba.gdn_linear_attn import GatedDeltaNetAttention
+
+from vllm_ascend.utils import vllm_version_is
+
+if vllm_version_is("0.20.2"):
+    from vllm.model_executor.layers.mamba.gdn_linear_attn import (  # type: ignore[import-not-found]
+        GatedDeltaNetAttention,
+    )
+else:
+    from vllm.model_executor.layers.mamba.gdn.base import GatedDeltaNetAttention
+
 from vllm.triton_utils import triton
 from vllm.v1.attention.backend import AttentionMetadata  # type: ignore
 from vllm.v1.attention.backends.gdn_attn import GDNAttentionMetadata
@@ -32,7 +41,6 @@ from vllm_ascend.ops.triton.fla.fused_qkvzba_split_reshape import fused_qkvzba_s
 from vllm_ascend.ops.triton.fla.utils import clear_ssm_states
 from vllm_ascend.ops.triton.fused_gdn_gating import fused_gdn_gating_patch
 from vllm_ascend.ops.triton.mamba.causal_conv1d import causal_conv1d_update_npu
-from vllm_ascend.utils import vllm_version_is
 
 
 def to_int64_tuple(tensor: torch.Tensor) -> tuple[int, ...]:

@@ -15,6 +15,12 @@
 # This file is a part of the vllm-ascend project.
 #
 
+from vllm_ascend._vllm_import_compat import install_vllm_logits_processor_import_hook
+
+# Installed when vLLM loads this package via platform ``plugin.load()``, before
+# ``LogitsProcessor`` / OpenAI entrypoints import lazy ``vllm`` public symbols.
+install_vllm_logits_processor_import_hook()
+
 _GLOBAL_PATCH_APPLIED = False
 
 
@@ -37,11 +43,16 @@ def _ensure_global_patch():
 
 def register():
     """Register the NPU platform."""
+    from vllm_ascend._vllm_import_compat import apply_vllm_import_compat
 
+    apply_vllm_import_compat()
     return "vllm_ascend.platform.NPUPlatform"
 
 
 def register_connector():
+    from vllm_ascend._vllm_import_compat import apply_vllm_import_compat
+
+    apply_vllm_import_compat()
     _ensure_global_patch()
 
     from vllm_ascend.distributed.kv_transfer import register_connector
@@ -50,6 +61,9 @@ def register_connector():
 
 
 def register_model_loader():
+    from vllm_ascend._vllm_import_compat import apply_vllm_import_compat
+
+    apply_vllm_import_compat()
     _ensure_global_patch()
 
     from .model_loader.netloader import register_netloader
@@ -60,8 +74,21 @@ def register_model_loader():
 
 
 def register_service_profiling():
+    from vllm_ascend._vllm_import_compat import apply_vllm_import_compat
+
+    apply_vllm_import_compat()
     _ensure_global_patch()
 
     from .profiling_config import generate_service_profiling_config
 
     generate_service_profiling_config()
+
+
+def register_model():
+    from vllm_ascend._vllm_import_compat import apply_vllm_import_compat
+
+    apply_vllm_import_compat()
+
+    from .models import register_model
+
+    register_model()

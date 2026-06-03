@@ -540,6 +540,7 @@ setup(
     entry_points={
         "vllm.platform_plugins": ["ascend = vllm_ascend:register"],
         "vllm.general_plugins": [
+            "ascend_import_compat = vllm_ascend._vllm_import_compat:apply_vllm_import_compat",
             "ascend_kv_connector = vllm_ascend:register_connector",
             "ascend_model_loader = vllm_ascend:register_model_loader",
             "ascend_service_profiling = vllm_ascend:register_service_profiling",

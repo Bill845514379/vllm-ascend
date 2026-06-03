@@ -446,9 +446,7 @@ def vllm_version_is(target_vllm_version: str):
     if envs_ascend.VLLM_VERSION is not None:
         vllm_version = envs_ascend.VLLM_VERSION
     else:
-        import vllm
-
-        vllm_version = vllm.__version__
+        from vllm.version import __version__ as vllm_version
     try:
         return Version(vllm_version) == Version(target_vllm_version)
     except InvalidVersion:

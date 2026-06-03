@@ -19,14 +19,63 @@
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from openai.types.responses import ToolChoiceFunction
 from vllm.entrypoints.openai.chat_completion.protocol import (
     ChatCompletionNamedToolChoiceParam,
+    ChatCompletionResponse,
+    ChatCompletionStreamResponse,
 )
 from vllm.entrypoints.openai.engine.serving import OpenAIServing
 from vllm.parser.abstract_parser import DelegatingParser
 
 _NO_FORCED_TOOL_CALL = "_vllm_ascend_no_forced_tool_call"
+
+_original_chat_completion_response_model_dump = ChatCompletionResponse.model_dump
+_original_chat_completion_stream_response_model_dump = ChatCompletionStreamResponse.model_dump
+
+
+def _omit_empty_tool_calls(payload: Any) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+
+    choices = payload.get("choices")
+    if not isinstance(choices, list):
+        return payload
+
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        for field_name in ("message", "delta"):
+            message = choice.get(field_name)
+            if isinstance(message, dict) and message.get("tool_calls") == []:
+                message.pop("tool_calls")
+
+    return payload
+
+
+def _patched_chat_completion_response_model_dump(self, *args, **kwargs):
+    return _omit_empty_tool_calls(_original_chat_completion_response_model_dump(self, *args, **kwargs))
+
+
+def _patched_chat_completion_stream_response_model_dump(self, *args, **kwargs):
+    return _omit_empty_tool_calls(_original_chat_completion_stream_response_model_dump(self, *args, **kwargs))
+
+
+def _patched_chat_completion_stream_response_model_dump_json(self, *args, **kwargs):
+    dump_kwargs = dict(kwargs)
+    indent = dump_kwargs.pop("indent", None)
+    ensure_ascii = dump_kwargs.pop("ensure_ascii", False)
+    payload = _patched_chat_completion_stream_response_model_dump(self, *args, **dump_kwargs)
+    separators = None if indent is not None else (",", ":")
+    return json.dumps(payload, ensure_ascii=ensure_ascii, indent=indent, separators=separators)
+
+
+ChatCompletionResponse.model_dump = _patched_chat_completion_response_model_dump
+ChatCompletionStreamResponse.model_dump = _patched_chat_completion_stream_response_model_dump
+ChatCompletionStreamResponse.model_dump_json = _patched_chat_completion_stream_response_model_dump_json
 
 
 def _is_forced_tool_choice(request) -> bool:
@@ -63,31 +112,61 @@ def _patch_named_tool_choice_bool() -> None:
 _patch_named_tool_choice_bool()
 
 
-_original_parse_tool_calls_from_content = OpenAIServing._parse_tool_calls_from_content
-
-
-def _patched_parse_tool_calls_from_content(
-    request,
-    tokenizer,
-    enable_auto_tools: bool,
-    tool_parser_cls,
-    content: str | None = None,
-):
+def _handle_forced_tool_choice_none_content(request, content: str | None):
     if content is None and _is_forced_tool_choice(request):
         _set_no_forced_tool_call(request, True)
         return [], None
 
     _set_no_forced_tool_call(request, False)
-    return _original_parse_tool_calls_from_content(
-        request=request,
-        tokenizer=tokenizer,
-        enable_auto_tools=enable_auto_tools,
-        tool_parser_cls=tool_parser_cls,
-        content=content,
+    return None
+
+
+if hasattr(OpenAIServing, "_parse_tool_calls_from_content"):
+    _original_parse_tool_calls_from_content = OpenAIServing._parse_tool_calls_from_content
+
+    def _patched_parse_tool_calls_from_content(
+        request,
+        tokenizer,
+        enable_auto_tools: bool,
+        tool_parser_cls,
+        content: str | None = None,
+    ):
+        handled = _handle_forced_tool_choice_none_content(request, content)
+        if handled is not None:
+            return handled
+
+        return _original_parse_tool_calls_from_content(
+            request=request,
+            tokenizer=tokenizer,
+            enable_auto_tools=enable_auto_tools,
+            tool_parser_cls=tool_parser_cls,
+            content=content,
+        )
+
+    OpenAIServing._parse_tool_calls_from_content = staticmethod(_patched_parse_tool_calls_from_content)
+
+_original_extract_tool_calls = DelegatingParser._extract_tool_calls
+
+
+def _patched_extract_tool_calls(
+    self,
+    content: str | None,
+    request,
+    enable_auto_tools: bool = False,
+):
+    handled = _handle_forced_tool_choice_none_content(request, content)
+    if handled is not None:
+        return handled
+
+    return _original_extract_tool_calls(
+        self,
+        content,
+        request,
+        enable_auto_tools,
     )
 
 
-OpenAIServing._parse_tool_calls_from_content = staticmethod(_patched_parse_tool_calls_from_content)
+DelegatingParser._extract_tool_calls = _patched_extract_tool_calls
 
 _original_delegating_parse_tool_calls = DelegatingParser._parse_tool_calls
 
@@ -98,8 +177,9 @@ def _patched_delegating_parse_tool_calls(
     content: str | None,
     enable_auto_tools: bool,
 ):
-    if content is None and _is_forced_tool_choice(request):
-        return [], None
+    handled = _handle_forced_tool_choice_none_content(request, content)
+    if handled is not None:
+        return handled
 
     return _original_delegating_parse_tool_calls(
         self,

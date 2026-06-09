@@ -439,6 +439,47 @@ class NPUModelRunner(GPUModelRunner):
                                                          dtype=torch.int64)
         self.num_discarded_requests = 0
 
+    def _needs_mtp_dummy_token_pad(
+        self,
+        scheduler_output: "SchedulerOutput",
+        num_scheduled_tokens: np.ndarray,
+        num_valid_tokens: np.ndarray,
+    ) -> bool:
+        """Whether to pad the batch with dummy tokens on the first MTP decode step.
+
+        MTP graph/kernels expect each request to run exactly
+        uniform_decode_query_len tokens (e.g. 2: one real + one dummy). On the
+        first step there is no draft yet and the scheduler schedules only one
+        real token per request; return True so _pad_mtp_decode_tokens fills in.
+        """
+        if (not self.speculative_config
+                or self.speculative_config.method != "mtp"):
+            return False
+        # PCP/DCP use a separate path; no dummy pad here.
+        if self.pcp_size * self.dcp_size > 1:
+            return False
+        # Draft/spec tokens already scheduled at MTP length; no pad needed.
+        if scheduler_output.scheduled_spec_decode_tokens:
+            return False
+        target_len = self.uniform_decode_query_len
+        if target_len <= 1:
+            return False
+        # Typical first step: one scheduled token per request, all valid.
+        return (np.all(num_scheduled_tokens == 1)
+                and np.all(num_valid_tokens == 1))
+
+    def _pad_mtp_decode_tokens(
+        self,
+        num_scheduled_tokens: np.ndarray,
+    ) -> np.ndarray:
+        """Pad each request from 1 token up to uniform_decode_query_len.
+
+        E.g. when uniform_decode_query_len=2, add one dummy slot per request.
+        Real tokens stay in num_valid_tokens; dummies skip KV and sampling.
+        """
+        pad_per_req = self.uniform_decode_query_len - 1
+        return num_scheduled_tokens + pad_per_req
+
     def _build_afd_dp_metadata_list(self, ubatch_slices_padded) -> dict:
         """构建dp_metadata_list用于发送给FFN侧
 
@@ -585,8 +626,9 @@ class NPUModelRunner(GPUModelRunner):
                int, torch.Tensor, SpecDecodeMetadata, Optional[torch.Tensor],
                Optional[torch.Tensor], Optional[torch.Tensor], int, int, dict[str,
                Any], Optional[AFDMetadata], UBatchSlices]:
-        total_num_scheduled_tokens = scheduler_output.total_num_scheduled_tokens
-        assert total_num_scheduled_tokens > 0
+        # Total real tokens from the scheduler (before MTP dummy pad).
+        num_real_tokens = scheduler_output.total_num_scheduled_tokens
+        assert num_real_tokens > 0
         num_reqs = self.input_batch.num_reqs
         assert num_reqs > 0
 
@@ -598,10 +640,7 @@ class NPUModelRunner(GPUModelRunner):
         req_ids = self.input_batch.req_ids
         tokens = [scheduler_output.num_scheduled_tokens[i] for i in req_ids]
         num_scheduled_tokens = np.array(tokens, dtype=np.int32)
-        num_scheduled_tokens_np = num_scheduled_tokens
-
-        req_indices = np.repeat(self.arange_np[:num_reqs],
-                                num_scheduled_tokens)
+        # Per-request count of real / sampleable tokens (unchanged after pad).
         if not scheduler_output.scheduled_spec_decode_tokens:
             num_valid_tokens = np.array(tokens, dtype=np.int32)
         else:
@@ -611,6 +650,19 @@ class NPUModelRunner(GPUModelRunner):
                 for num_tokens, i in zip(tokens, req_ids)
             ],
                                         dtype=np.int32)
+
+        # First MTP decode step: pad 1 token/request to uniform_decode_query_len.
+        mtp_dummy_pad = self._needs_mtp_dummy_token_pad(
+            scheduler_output, num_scheduled_tokens, num_valid_tokens)
+        if mtp_dummy_pad:
+            num_scheduled_tokens = self._pad_mtp_decode_tokens(
+                num_scheduled_tokens)
+        num_scheduled_tokens_np = num_scheduled_tokens
+        # Tokens actually forwarded (incl. dummies); AFD/DP batch shape uses this.
+        num_forward_tokens = int(num_scheduled_tokens.sum())
+
+        req_indices = np.repeat(self.arange_np[:num_reqs],
+                                num_scheduled_tokens)
         # Get the attention state.
         attn_state = self._build_attn_state(num_reqs, num_scheduled_tokens,
                                             num_valid_tokens)
@@ -622,7 +674,7 @@ class NPUModelRunner(GPUModelRunner):
         ]
 
         # Get positions.
-        positions_np = self.positions.np[:total_num_scheduled_tokens]
+        positions_np = self.positions.np[:num_forward_tokens]
         cu_num_tokens, arange = self._get_cumsum_and_arange(
             num_scheduled_tokens)
         np.add(self.input_batch.num_computed_tokens_cpu[req_indices],
@@ -631,13 +683,25 @@ class NPUModelRunner(GPUModelRunner):
 
         self.input_batch.block_table.compute_slot_mapping(
             req_indices, positions_np)
-        self.input_batch.block_table.commit_slot_mapping(
-            total_num_scheduled_tokens)
+        self.input_batch.block_table.commit_slot_mapping(num_forward_tokens)
+        if mtp_dummy_pad:
+            # Dummies skip KV: slot_mapping=-1 means no cache write.
+            # cu_num_tokens[i] is the exclusive end index of request i (cumsum).
+            slot_cpu = self.input_batch.block_table[0].slot_mapping.cpu
+            for req_idx in range(num_reqs):
+                req_start = (0 if req_idx == 0 else
+                             int(cu_num_tokens[req_idx - 1]))
+                req_end = int(cu_num_tokens[req_idx])
+                # Dummy indices: [req_start + num_valid, req_end).
+                for dummy_idx in range(
+                        req_start + int(num_valid_tokens[req_idx]), req_end):
+                    slot_cpu[dummy_idx] = -1
+            self.input_batch.block_table[0].slot_mapping.copy_to_gpu()
         # for pcp, prefill mtp should use origin scheduleroutput ,
         if self.speculative_config and self.pcp_size * self.dcp_size > 1:
             self.pcp_manager.generate_pcp_mtp_input(
                 num_reqs,
-                total_num_scheduled_tokens,
+                num_real_tokens,
                 scheduler_output.num_scheduled_tokens,
                 with_prefill,
                 self.input_batch,
@@ -658,29 +722,30 @@ class NPUModelRunner(GPUModelRunner):
                                      self.reorder_batch_threshold,
                                  )
             # Re-update after PCP split sequences.
-            total_num_scheduled_tokens = sum(num_scheduled_tokens)
+            num_forward_tokens = int(num_scheduled_tokens.sum())
             req_indices = np.repeat(self.arange_np[:num_reqs],
                                     num_scheduled_tokens)
             cu_num_tokens, _ = self._get_cumsum_and_arange(
                 num_scheduled_tokens)
-            positions_np = self.positions.np[:total_num_scheduled_tokens]
+            positions_np = self.positions.np[:num_forward_tokens]
             np.add(
                 self.input_batch.num_computed_tokens_cpu[req_indices],
-                position_pcp[:total_num_scheduled_tokens],
+                position_pcp[:num_forward_tokens],
                 out=positions_np,
             )
-        max_num_scheduled_tokens = max(tokens)
+        max_num_scheduled_tokens = int(num_scheduled_tokens.max())
+        # uniform_decode: same tokens/request as MTP fixed length (after dummy pad).
         uniform_decode = (max_num_scheduled_tokens == self.uniform_decode_query_len) \
-            and (total_num_scheduled_tokens == max_num_scheduled_tokens * num_reqs)
+            and (num_forward_tokens == max_num_scheduled_tokens * num_reqs)
         has_lora = len(self.input_batch.lora_id_to_lora_request) > 0
         # the following process is corresponding to _pad_for_sequence_parallelism
         # in gpu_model_runner
         if enable_sp(self.vllm_config):
             tp_size = self.vllm_config.parallel_config.tensor_parallel_size
             num_input_tokens = math.ceil(
-                total_num_scheduled_tokens / tp_size) * tp_size
+                num_forward_tokens / tp_size) * tp_size
         else:
-            num_input_tokens = total_num_scheduled_tokens
+            num_input_tokens = num_forward_tokens
         cudagraph_mode, batch_descriptor = self.cudagraph_dispatcher.dispatch(
             num_tokens=num_input_tokens,
             uniform_decode=uniform_decode,
@@ -709,20 +774,20 @@ class NPUModelRunner(GPUModelRunner):
         if self.uses_mrope:
             # Only relevant for models using M-RoPE (e.g, Qwen2-VL)
             self._calc_mrope_positions(scheduler_output)
-            self.mrope_positions.gpu[:, :total_num_scheduled_tokens].copy_(
-                self.mrope_positions.cpu[:, :total_num_scheduled_tokens],
+            self.mrope_positions.gpu[:, :num_real_tokens].copy_(
+                self.mrope_positions.cpu[:, :num_real_tokens],
                 non_blocking=True,
             )
         elif self.uses_xdrope_dim > 0:
             self._calc_xdrope_positions(scheduler_output)
             # Only relevant for models using XD-RoPE (e.g, HunYuan-VL)
-            self.xdrope_positions.gpu[:, :total_num_scheduled_tokens].copy_(
-                self.xdrope_positions.cpu[:, :total_num_scheduled_tokens],
+            self.xdrope_positions.gpu[:, :num_real_tokens].copy_(
+                self.xdrope_positions.cpu[:, :num_real_tokens],
                 non_blocking=True,
             )
         else:
             # Common case (1D positions)
-            self.positions.copy_to_gpu(total_num_scheduled_tokens)
+            self.positions.copy_to_gpu(num_forward_tokens)
 
         # Get token indices.
         # E.g., [0, 1, 0, 1, 2, 3, 4, 0, 1, 2]
@@ -738,14 +803,14 @@ class NPUModelRunner(GPUModelRunner):
         torch.index_select(self.input_batch.token_ids_cpu_tensor.flatten(),
                            0,
                            token_indices_tensor,
-                           out=self.input_ids.cpu[:total_num_scheduled_tokens])
+                           out=self.input_ids.cpu[:num_real_tokens])
         if self.enable_prompt_embeds:
             is_token_ids = self.input_batch.is_token_ids_tensor.flatten()
             torch.index_select(
                 is_token_ids,
                 0,
                 token_indices_tensor,
-                out=self.is_token_ids.cpu[:total_num_scheduled_tokens])
+                out=self.is_token_ids.cpu[:num_real_tokens])
 
         # Because we did not pre-allocate a massive prompt_embeds CPU tensor on
         # the InputBatch, we need to fill in the prompt embeds into the expected
@@ -792,12 +857,13 @@ class NPUModelRunner(GPUModelRunner):
         self.query_start_loc.np[num_reqs + 1:].fill(cu_num_tokens[-1])
         self.query_start_loc.copy_to_gpu()
 
-        num_tokens_unpadded = scheduler_output.total_num_scheduled_tokens
+        num_tokens_unpadded = num_forward_tokens
         # Disable cascade attention when using microbatching (DBO)
         cascade_attn_prefix_lens = None
 
+        # Use padded num_forward_tokens, not the scheduler's original total.
         uniform_decode = (max_num_scheduled_tokens == self.uniform_decode_query_len
-                          ) and (total_num_scheduled_tokens == num_reqs * max_num_scheduled_tokens)
+                          ) and (num_forward_tokens == num_reqs * max_num_scheduled_tokens)
 
         (
             cudagraph_mode,
@@ -843,17 +909,23 @@ class NPUModelRunner(GPUModelRunner):
 
         self.is_ubatch = should_ubatch
 
+        # Advance seq_len only by real tokens; dummies do not extend the sequence.
+        seq_lens_delta = (num_valid_tokens[:num_reqs] if mtp_dummy_pad else
+                          num_scheduled_tokens[:num_reqs])
         self.seq_lens.np[:num_reqs] = (
             self.input_batch.num_computed_tokens_cpu[:num_reqs] +
-            num_scheduled_tokens)
+            seq_lens_delta)
         self.seq_lens.copy_to_gpu()
 
         self.seq_lens.gpu[num_reqs:].fill_(0)
 
         # Copy the tensors to the NPU.
-        self._prepare_input_ids(scheduler_output, total_num_scheduled_tokens,
+        self._prepare_input_ids(scheduler_output, num_real_tokens,
                                 cu_num_tokens)
-        self.positions.cpu[total_num_scheduled_tokens:num_input_tokens].zero_()
+        self.positions.cpu[num_forward_tokens:num_input_tokens].zero_()
+        if mtp_dummy_pad:
+            # Zero dummy input_ids (with slot=-1 they do not affect semantics).
+            self.input_ids.cpu[num_real_tokens:num_forward_tokens].zero_()
         self.positions.copy_to_gpu()
 
         # Record the index of requests that should not be sampled,
@@ -902,7 +974,7 @@ class NPUModelRunner(GPUModelRunner):
                 # NOTE(woosuk): To unify token ids and soft tokens (vision
                 # embeddings), we always use embeddings (rather than token ids)
                 # as input to the multimodal model, even when the input is text.
-                input_ids = self.input_ids.gpu[:total_num_scheduled_tokens]
+                input_ids = self.input_ids.gpu[:num_real_tokens]
                 mm_embeds, is_mm_embed = self._gather_mm_embeddings(
                     scheduler_output)
 
@@ -913,7 +985,7 @@ class NPUModelRunner(GPUModelRunner):
             )
 
             # TODO(woosuk): Avoid the copy. Optimize.
-            self.inputs_embeds.gpu[:total_num_scheduled_tokens].copy_(
+            self.inputs_embeds.gpu[:num_real_tokens].copy_(
                 inputs_embeds)
             inputs_embeds = self.inputs_embeds.gpu[:num_input_tokens]
             input_ids = None
@@ -930,7 +1002,7 @@ class NPUModelRunner(GPUModelRunner):
             # If a batch only has token ids, then including the embedding layer
             # in the acl graph will be more performant (like in the else case
             # below).
-            token_ids_idx = self.is_token_ids.gpu[:total_num_scheduled_tokens] \
+            token_ids_idx = self.is_token_ids.gpu[:num_real_tokens] \
                 .nonzero(as_tuple=False) \
                 .squeeze(1)
             # Some tokens ids may need to become embeds
@@ -958,8 +1030,8 @@ class NPUModelRunner(GPUModelRunner):
 
         # Run the encoder, just like we do with other multimodal inputs.
         if self.model_config.is_encoder_decoder and scheduler_output.scheduled_encoder_inputs:
-            input_ids = self.input_ids.gpu[:total_num_scheduled_tokens]
-            positions = self.positions.gpu[:total_num_scheduled_tokens]
+            input_ids = self.input_ids.gpu[:num_input_tokens]
+            positions = self.positions.gpu[:num_input_tokens]
             encoder_outputs = self._execute_mm_encoder(scheduler_output)
             model_kwargs.update({"encoder_outputs": encoder_outputs})
 
@@ -1002,6 +1074,11 @@ class NPUModelRunner(GPUModelRunner):
                     cu_num_tokens, num_reqs)
                 logits_indices = logits_indices.pin_memory().to(
                     self.device, non_blocking=True)
+            elif mtp_dummy_pad:
+                # Sample logits from the first real token in each padded segment.
+                logits_indices = (
+                    self.query_start_loc.gpu[1:num_reqs + 1] -
+                    self.uniform_decode_query_len)
             else:
                 logits_indices = self.query_start_loc.gpu[1:num_reqs + 1] - 1
         else:
@@ -1069,30 +1146,29 @@ class NPUModelRunner(GPUModelRunner):
                     device=self.device,
                 )
                 slot_mapping = torch.zeros(
-                    (total_num_scheduled_tokens, ),
+                    (num_forward_tokens, ),
                     dtype=torch.int64,
                     device=self.device,
                 )
             else:
                 maybe_pcp_full_tokens = (
                     num_input_tokens if self.pcp_size == 1 else
-                    total_num_scheduled_tokens * self.pcp_size -
+                    num_forward_tokens * self.pcp_size -
                     sum(self.pcp_manager.num_pcp_pads_cpu[:num_reqs]))
                 blk_table = self.input_batch.block_table[kv_cache_group_id]
                 blk_table_tensor = blk_table.get_device_tensor()
                 slot_mapping = blk_table.slot_mapping.gpu[:
                                                           maybe_pcp_full_tokens]
                 if self.pcp_size == 1:
-                    slot_mapping[
-                        total_num_scheduled_tokens:num_input_tokens].fill_(-1)
+                    slot_mapping[num_forward_tokens:num_input_tokens].fill_(-1)
             if self.pcp_size * self.dcp_size > 1:
                 self.long_seq_metadata = self.pcp_manager.generate_pcp_metadata(
-                    total_num_scheduled_tokens, self.query_lens,
+                    num_forward_tokens, self.query_lens,
                     self.input_batch, num_scheduled_tokens)
                 blk_table.slot_mapping.gpu[maybe_pcp_full_tokens:].fill_(-1)
                 if self.pcp_size > 1:
                     slot_mapping_pcp = self.pcp_manager.get_padded_slot_mapping(
-                        total_num_scheduled_tokens,
+                        num_forward_tokens,
                         slot_mapping,
                     )
                     blk_table.slot_mapping.gpu[:self.pcp_manager.
@@ -1109,7 +1185,7 @@ class NPUModelRunner(GPUModelRunner):
             #    following simplified `dispatch` logic here, we try to minimize the impact
             # 3. query_start_loc = self.query_start_loc.gpu[: num_reqs_padded + 1]
             uniform_decode = (max_num_scheduled_tokens == self.uniform_decode_query_len) \
-                and (total_num_scheduled_tokens == max_num_scheduled_tokens * num_reqs)
+                and (num_forward_tokens == max_num_scheduled_tokens * num_reqs)
 
             # TODO: We should make this official ASAP. Also note that if we pad here,
             # the builders won’t need to add any extra padding.
@@ -1142,7 +1218,8 @@ class NPUModelRunner(GPUModelRunner):
                 seq_lens_cpu=self.seq_lens.cpu[:num_reqs],
                 seq_lens=self.seq_lens.gpu[:num_reqs],
                 num_reqs=num_reqs,
-                num_actual_tokens=total_num_scheduled_tokens,
+                # Attention runs on padded length; dummies masked via slot_mapping=-1.
+                num_actual_tokens=num_forward_tokens,
                 num_input_tokens=num_input_tokens,
                 actual_seq_lengths_q=self.actual_seq_lengths_q,
                 # TODO: change this to the right block table for linear attn
@@ -1198,10 +1275,10 @@ class NPUModelRunner(GPUModelRunner):
             if self.speculative_config and \
                 self.spec_decode_common_attn_metadata is None:
                 self.spec_decode_common_attn_metadata = common_attn_metadata
-                if num_reqs != base_num_reqs or total_num_scheduled_tokens != num_input_tokens:
+                if num_reqs != base_num_reqs or num_forward_tokens != num_input_tokens:
                     self.spec_decode_common_attn_metadata = \
                         self.spec_decode_common_attn_metadata.unpadded(
-                            total_num_scheduled_tokens, base_num_reqs)
+                            num_real_tokens, base_num_reqs)
 
             for attn_group in self.attn_groups[kv_cache_group_id]:
                 common_prefix_len = 0
@@ -1687,8 +1764,7 @@ class NPUModelRunner(GPUModelRunner):
                 self.debugger.start()
 
         uniform_decode = (max_query_len == self.uniform_decode_query_len) and (
-            scheduler_output.total_num_scheduled_tokens
-            == self.input_batch.num_reqs * max_query_len)
+            num_input_tokens == self.input_batch.num_reqs * max_query_len)
         has_lora = len(self.input_batch.lora_id_to_lora_request) > 0
         aclgraph_runtime_mode, batch_descriptor = \
             self.cudagraph_dispatcher.dispatch(num_tokens=num_input_tokens, uniform_decode=uniform_decode, has_lora=has_lora,

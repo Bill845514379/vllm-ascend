@@ -1,6 +1,16 @@
+import os
+
 import torch
 from vllm.config import ParallelConfig, get_current_vllm_config
-from vllm.distributed.parallel_state import GroupCoordinator, get_tp_group, get_world_group, init_model_parallel_group
+from vllm.distributed import ensure_model_parallel_initialized, get_ep_group, init_distributed_environment
+from vllm.distributed.parallel_state import (
+    GroupCoordinator,
+    get_tp_group,
+    get_world_group,
+    init_model_parallel_group,
+    model_parallel_is_initialized,
+)
+from vllm.logger import logger
 
 from vllm_ascend.ascend_config import get_ascend_config
 from vllm_ascend.utils import enable_dsa_cp_with_layer_shard, flashcomm2_enable
@@ -228,6 +238,120 @@ def init_ascend_model_parallel(
 
 def model_parallel_initialized():
     return _MC2 is not None
+
+
+def _is_ep_group_initialized() -> bool:
+    try:
+        get_ep_group()
+        return True
+    except AssertionError:
+        return False
+
+
+def _is_world_group_initialized() -> bool:
+    try:
+        get_world_group()
+        return True
+    except AssertionError:
+        return False
+
+
+def _ensure_vllm_world_group_initialized() -> None:
+    """Initialize vLLM world group when torch.distributed is already set up."""
+    if _is_world_group_initialized():
+        return
+
+    if not torch.distributed.is_initialized():
+        return
+
+    local_rank = int(os.environ.get("LOCAL_RANK", torch.distributed.get_rank()))
+    init_distributed_environment(
+        world_size=torch.distributed.get_world_size(),
+        rank=torch.distributed.get_rank(),
+        distributed_init_method="env://",
+        local_rank=local_rank,
+        backend=torch.distributed.get_backend(),
+    )
+
+
+def _init_ep_group_fallback(parallel_config: ParallelConfig) -> None:
+    """Initialize vLLM EP group when standard model-parallel init skipped it."""
+    import vllm.distributed.parallel_state as vllm_ps
+
+    if vllm_ps._EP is not None:
+        return
+
+    world_size = torch.distributed.get_world_size()
+    backend = torch.distributed.get_backend(get_world_group().device_group)
+    all_ranks = torch.arange(world_size).reshape(
+        -1,
+        parallel_config.data_parallel_size,
+        parallel_config.pipeline_parallel_size,
+        parallel_config.prefill_context_parallel_size,
+        parallel_config.tensor_parallel_size,
+    )
+    group_ranks = (
+        all_ranks.transpose(1, 2)
+        .reshape(
+            -1,
+            parallel_config.data_parallel_size
+            * parallel_config.prefill_context_parallel_size
+            * parallel_config.tensor_parallel_size,
+        )
+        .unbind(0)
+    )
+    group_ranks = [x.tolist() for x in group_ranks]
+    vllm_ps._EP = init_model_parallel_group(
+        group_ranks, get_world_group().local_rank, backend, group_name="ep"
+    )
+
+
+def ensure_ep_group_initialized() -> None:
+    """Ensure vLLM expert-parallel group exists for MoE inference.
+
+    vLLM-Omni diffusion workers may initialize torch.distributed without
+    calling vLLM's ensure_model_parallel_initialized(), which leaves the EP
+    group unset and breaks MoE quantization setup.
+    """
+    if _is_ep_group_initialized():
+        return
+
+    if not torch.distributed.is_initialized():
+        logger.warning_once(
+            "torch.distributed is not initialized; skipping EP group initialization."
+        )
+        return
+
+    vllm_config = get_current_vllm_config()
+    if vllm_config is None:
+        logger.warning_once("vllm_config is not available; cannot initialize EP group.")
+        return
+
+    _ensure_vllm_world_group_initialized()
+    parallel_config = vllm_config.parallel_config
+    if not model_parallel_is_initialized():
+        ensure_model_parallel_initialized(
+            parallel_config.tensor_parallel_size,
+            parallel_config.pipeline_parallel_size,
+            parallel_config.prefill_context_parallel_size,
+            parallel_config.decode_context_parallel_size,
+        )
+    elif not _is_ep_group_initialized():
+        logger.info_once(
+            "Model parallel groups are partially initialized; "
+            "using fallback EP group initialization for MoE inference."
+        )
+        _init_ep_group_fallback(parallel_config)
+
+    if not model_parallel_initialized():
+        init_ascend_model_parallel(parallel_config)
+
+    if not _is_ep_group_initialized():
+        logger.info_once(
+            "EP group was not created by vLLM model-parallel init; "
+            "initializing fallback EP group for MoE inference."
+        )
+        _init_ep_group_fallback(parallel_config)
 
 
 def get_mc2_group() -> GroupCoordinator:

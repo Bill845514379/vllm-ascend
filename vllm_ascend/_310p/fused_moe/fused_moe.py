@@ -22,6 +22,7 @@ from vllm.model_executor.layers.fused_moe.config import FusedMoEConfig
 from vllm.model_executor.layers.fused_moe.layer import FusedMoE, UnquantizedFusedMoEMethod
 
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType
+from vllm_ascend.distributed.parallel_state import ensure_ep_group_initialized
 from vllm_ascend.ops.fused_moe.experts_selector import zero_experts_compute
 from vllm_ascend.ops.fused_moe.moe_comm_method import (
     AllGatherCommImpl,
@@ -128,6 +129,7 @@ class AscendUnquantizedFusedMoEMethod310(UnquantizedFusedMoEMethod):
 
 class AscendFusedMoE310(FusedMoE):
     def __init__(self, *args, **kwargs):
+        ensure_ep_group_initialized()
         super().__init__(*args, **kwargs)
 
         self._routed_input_transform = kwargs.get("routed_input_transform")

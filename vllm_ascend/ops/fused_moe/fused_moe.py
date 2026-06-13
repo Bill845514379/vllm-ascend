@@ -32,7 +32,7 @@ from vllm.model_executor.layers.fused_moe.runner.moe_runner import MoERunner  # 
 
 from vllm_ascend.ascend_config import get_ascend_config
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType
-from vllm_ascend.distributed.parallel_state import get_mc2_group
+from vllm_ascend.distributed.parallel_state import ensure_ep_group_initialized, get_mc2_group
 from vllm_ascend.eplb.core.eplb_utils import init_eplb_config
 from vllm_ascend.flash_common3_context import get_flash_common3_context, set_flash_common3_context
 from vllm_ascend.ops.fused_moe.experts_selector import select_experts, zero_experts_compute
@@ -344,6 +344,7 @@ class AscendFusedMoE(FusedMoE):
         tid2eid = kwargs.pop("tid2eid") if "tid2eid" in kwargs else None
 
         self._original_routed_scaling_factor = kwargs.get("routed_scaling_factor", 1.0)
+        ensure_ep_group_initialized()
         super().__init__(*args, **kwargs)
         self.use_overlapped = True
         self._routed_input_transform = kwargs.get("routed_input_transform")

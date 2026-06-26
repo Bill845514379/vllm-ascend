@@ -746,6 +746,15 @@ class NPUModelRunner(GPUModelRunner):
         This function is only designed to satisfied the constraint that when the layout is TND,
         the first dimension of `hidden_states` must equal the last element of `actual_seq_lengths_q`.
         """
+        # FlashComm1 pads the token dimension inside linear row-parallel ops
+        # (matmul + reduce_scatter).  Keep actual request boundaries in
+        # query_start_loc; do not insert dummy requests (breaks sparse decode
+        # metadata) or extend the last span to num_tokens_padded (breaks sparse
+        # prefill when SP padding exceeds actual scheduled tokens).
+        if enable_sp(self.vllm_config) and self.pcp_size * self.dcp_size == 1:
+            self.query_start_loc.copy_to_gpu()
+            return num_reqs_padded
+
         # TODO: need refactor later, related to vllm PR #34043 this pr delete func
         # relax_for_mixed_batch_cudagraphs, num_reqs no longer equals the actual number of requests.
         if cudagraph_runtime_mode == CUDAGraphMode.FULL and \

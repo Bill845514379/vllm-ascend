@@ -682,7 +682,7 @@ def _get_column_parallel_op(
     if flashcomm2_oshard_manager.flashcomm2_oshard_enable():
         if any(p in prefix for p in ("qkv_proj", "conv1d", "query_key_value")):
             return Flashcomm2OshardQKVParallelOp(layer)
-    if enable_sp():
+    if enable_sp() and not _is_multimodal_encoder_prefix(prefix):
         if "shared_expert" in prefix:
             return None
         sp_column_prefix = [
@@ -724,7 +724,7 @@ def _get_row_parallel_op(
     if flashcomm2_enable():
         if "o_proj" in prefix or "out_proj" in prefix:
             return Flashcomm2OProjRowParallelOp(layer)
-    if enable_sp():
+    if enable_sp() and not _is_multimodal_encoder_prefix(prefix):
         if "shared_expert" in prefix:
             return None
         sp_row_prefixes = [
@@ -739,6 +739,16 @@ def _get_row_parallel_op(
                 return SequenceRowParallelOp(layer)
 
     return None
+
+
+def _is_multimodal_encoder_prefix(prefix: str) -> bool:
+    multimodal_encoder_prefixes = (
+        "vision_tower",
+        "vision_model",
+        "multi_modal_projector",
+        "patch_merge_mlp",
+    )
+    return any(part in prefix for part in multimodal_encoder_prefixes)
 
 
 def get_parallel_op(disable_tp, prefix, layer, direct):

@@ -9,6 +9,9 @@ Test cases are adapted from
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 import torch
 
@@ -50,6 +53,22 @@ PRODUCTION_LOCAL_BLOCKS = 1
 PRODUCTION_INIT_BLOCKS = 0
 # TP=8 over 4 index/KV heads -> 1 head per rank during online serve.
 PRODUCTION_NUM_IDX_HEADS_TP8 = 1
+# MiniMax-M3 w8a8 online serve (TP=8): 64 Q-heads / 8 -> 8 heads per rank, 1 KV head.
+ONLINE_W8A8_NUM_Q_HEADS = 8
+ONLINE_W8A8_NUM_KV_HEADS = 1
+# Engine block-table width from online2_w8a8.log (max_seq_len=10240 / block_size=128).
+ONLINE_BLOCK_TABLE_MAX_BLOCKS = 80
+# seq_lens observed in online2_w8a8 decode repro logs (prefill ~137 + decode tokens).
+ONLINE_W8A8_DECODE_SEQ_LENS = (138, 139, 140, 141)
+# First 3 logical->physical mappings from case L3_R0_T0_H0_D0_S138_DQ1_F1.
+ONLINE_S138_BLOCK_TABLE_PREFIX = (1, 2, 0)
+# Bundled online golden (~200KB). Built from full dump via fixtures/build_bundled_golden.py.
+_GOLDEN_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
+_GOLDEN_BUNDLED_PT = (
+    _GOLDEN_FIXTURE_DIR / "bundled" / "minimax_m3_decode_L3_S138_DQ1_F1.pt"
+)
+_GOLDEN_ONLINE_PT = _GOLDEN_FIXTURE_DIR / "minimax_m3_decode_L3_S138_DQ1_F1.pt"
+
 
 
 def _next_power_of_2(x: int) -> int:
@@ -501,30 +520,136 @@ def _assert_sparse_close(actual: torch.Tensor, expected: torch.Tensor) -> None:
     )
 
 
-def _allocate_main_kv_cache_fused(
+def _allocate_main_kv_pool(
+    num_pool_blocks: int,
+    num_kv_heads: int = NUM_KV_HEADS,
+    *,
+    device: str = DEVICE,
+    dtype: torch.dtype = DTYPE,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Split K/V caches indexed by physical page id (online runtime layout)."""
+    shape = (num_pool_blocks, BLOCK_SIZE, num_kv_heads, HEAD_DIM)
+    key_cache = torch.randn(shape, device=device, dtype=dtype)
+    value_cache = torch.randn(shape, device=device, dtype=dtype)
+    return key_cache, value_cache
+
+
+def _stack_main_kv_pool(
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+) -> torch.Tensor:
+    return torch.stack((key_cache, value_cache), dim=0)
+
+
+def _main_kv_cache_for_triton_from_pool(
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    kv_format: str,
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    if kv_format == "stacked":
+        return _stack_main_kv_pool(key_cache, value_cache)
+    if kv_format == "tuple":
+        return key_cache, value_cache
+    raise ValueError(f"Unknown kv_format: {kv_format!r}")
+
+
+def _simulate_prefill_kv_write(
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    block_table_row: torch.Tensor,
+    seq_len: int,
+    *,
+    seed: int,
+) -> None:
+    """Write tokens [0, seq_len) into physical pages via the logical block table."""
+    gen = torch.Generator(device=key_cache.device)
+    gen.manual_seed(seed)
+    num_kv_heads = key_cache.shape[2]
+    head_dim = key_cache.shape[3]
+    for pos in range(seq_len):
+        logical_blk = pos // BLOCK_SIZE
+        intra = pos % BLOCK_SIZE
+        page = int(block_table_row[logical_blk].item())
+        key_cache[page, intra] = torch.randn(
+            num_kv_heads,
+            head_dim,
+            device=key_cache.device,
+            dtype=key_cache.dtype,
+            generator=gen,
+        )
+        value_cache[page, intra] = torch.randn(
+            num_kv_heads,
+            head_dim,
+            device=value_cache.device,
+            dtype=value_cache.dtype,
+            generator=gen,
+        )
+
+
+def _decode_torch_reference(
+    q: torch.Tensor,
+    kv_cache: torch.Tensor | tuple[torch.Tensor, torch.Tensor],
+    topk_idx: torch.Tensor,
+    block_table: torch.Tensor,
+    seq_lens: torch.Tensor,
+    *,
+    num_kv_heads: int,
+    sm_scale: float,
+    decode_query_len: int,
+    max_seq_len: int | None = None,
+) -> torch.Tensor:
+    from vllm_ascend.attention.msa_m3_ops import minimax_m3_sparse_attn_decode_torch
+
+    out = torch.empty_like(q)
+    minimax_m3_sparse_attn_decode_torch(
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        out,
+        decode_query_len,
+        max_seq_len=max_seq_len,
+    )
+    return out
+
+
+def _allocate_main_kv_cache(
     num_pages: int,
+    num_kv_heads: int = NUM_KV_HEADS,
     *,
     device: str = DEVICE,
     dtype: torch.dtype = DTYPE,
 ) -> torch.Tensor:
-    """Logical NHD main cache ``[num_blocks, 2, block, num_kv_heads, head_dim]``."""
+    """Ascend main KV cache ``[2, num_blocks, block_size, num_kv_heads, head_dim]``.
+
+    Matches ``AscendMiniMaxM3SparseBackend.get_kv_cache_shape`` and the split
+    K/V layout consumed by ``msa_m3_triton`` (not vllm_cp fused
+    ``[num_blocks, 2, ...]``).
+    """
     return torch.randn(
-        num_pages, 2, BLOCK_SIZE, NUM_KV_HEADS, HEAD_DIM, device=device, dtype=dtype
+        2,
+        num_pages,
+        BLOCK_SIZE,
+        num_kv_heads,
+        HEAD_DIM,
+        device=device,
+        dtype=dtype,
     )
 
 
-def _main_kv_cache_from_fused(
-    kv_cache_fused: torch.Tensor,
+def _main_kv_cache_for_triton(
+    kv_cache_stacked: torch.Tensor,
     kv_format: str,
 ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-    key_cache, value_cache = kv_cache_fused.unbind(1)
-    if kv_format == "fused":
-        return kv_cache_fused
+    """Expose stacked cache the way online serve passes it into Triton."""
+    if kv_format == "stacked":
+        return kv_cache_stacked
     if kv_format == "tuple":
-        return key_cache, value_cache
-    if kv_format == "ascend":
-        return torch.stack((key_cache, value_cache), dim=0)
-    raise ValueError(f"Unknown kv_format: {kv_format}")
+        return kv_cache_stacked[0], kv_cache_stacked[1]
+    raise ValueError(f"Unknown kv_format: {kv_format!r}")
 
 
 def _reference_sparse_attn(
@@ -547,8 +672,9 @@ def _reference_sparse_attn(
         positions = torch.arange(seq_len, device=q.device)
         pages = block_table[req_id, positions // BLOCK_SIZE]
         rows = positions % BLOCK_SIZE
-        k_req = kv_cache[pages, 0, rows]
-        v_req = kv_cache[pages, 1, rows].float()
+        k_cache, v_cache = _split_triton_main_kv_cache(kv_cache)
+        k_req = k_cache[pages, rows]
+        v_req = v_cache[pages, rows].float()
 
         q_pos = prefix_len + torch.arange(q_len, device=q.device)
         key_blocks = positions // BLOCK_SIZE
@@ -662,7 +788,7 @@ def _build_decode_inputs(
         ((65, 129, 257), (129, 257, 385)),
     ],
 )
-@pytest.mark.parametrize("kv_format", ["fused", "tuple", "ascend"])
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
 def test_prefill_sparse_attention_correctness(
     q_lens: tuple[int, ...],
     kv_lens: tuple[int, ...],
@@ -694,8 +820,8 @@ def test_prefill_sparse_attention_correctness(
     max_seqlen_q = max(q_lens)
 
     q = torch.randn(total_q, NUM_Q_HEADS, HEAD_DIM, device=DEVICE, dtype=DTYPE)
-    kv_cache_fused = _allocate_main_kv_cache_fused(num_pages)
-    kv_cache = _main_kv_cache_from_fused(kv_cache_fused, kv_format)
+    kv_cache_stacked = _allocate_main_kv_cache(num_pages)
+    kv_cache = _main_kv_cache_for_triton(kv_cache_stacked, kv_format)
     topk_idx = _build_prefill_topk_idx(q_lens_t, prefix_lens, total_q)
 
     actual = torch.empty_like(q)
@@ -716,7 +842,7 @@ def test_prefill_sparse_attention_correctness(
 
     expected = _reference_sparse_attn(
         q,
-        kv_cache_fused,
+        kv_cache,
         topk_idx,
         block_table,
         q_lens_t,
@@ -727,18 +853,22 @@ def test_prefill_sparse_attention_correctness(
 
 
 def test_split_triton_main_kv_cache_formats_match() -> None:
-    fused = _allocate_main_kv_cache_fused(3)
-    key_cache, value_cache = fused.unbind(1)
-    ascend = torch.stack((key_cache, value_cache), dim=0)
+    stacked = _allocate_main_kv_cache(3)
+    key_cache, value_cache = stacked[0], stacked[1]
 
-    k_fused, v_fused = _split_triton_main_kv_cache(fused)
+    k_stacked, v_stacked = _split_triton_main_kv_cache(stacked)
     k_tuple, v_tuple = _split_triton_main_kv_cache((key_cache, value_cache))
-    k_ascend, v_ascend = _split_triton_main_kv_cache(ascend)
 
-    torch.testing.assert_close(k_fused, k_tuple)
-    torch.testing.assert_close(v_fused, v_tuple)
-    torch.testing.assert_close(k_fused, k_ascend)
-    torch.testing.assert_close(v_fused, v_ascend)
+    torch.testing.assert_close(k_stacked, key_cache)
+    torch.testing.assert_close(v_stacked, value_cache)
+    torch.testing.assert_close(k_tuple, key_cache)
+    torch.testing.assert_close(v_tuple, value_cache)
+
+    # vllm_cp GPU fused layout is still accepted for portability checks.
+    fused = torch.stack((key_cache, value_cache), dim=1)
+    k_fused, v_fused = _split_triton_main_kv_cache(fused)
+    torch.testing.assert_close(k_fused, key_cache)
+    torch.testing.assert_close(v_fused, value_cache)
 
 
 @pytest.mark.parametrize(
@@ -747,7 +877,7 @@ def test_split_triton_main_kv_cache_formats_match() -> None:
 )
 @pytest.mark.parametrize("decode_query_len", [1, 4])
 @pytest.mark.parametrize("num_padded_reqs", [0, 2])
-@pytest.mark.parametrize("kv_format", ["fused", "tuple", "ascend"])
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
 def test_decode_sparse_attention_correctness(
     seq_lens_list: tuple[int, ...],
     decode_query_len: int,
@@ -758,8 +888,8 @@ def test_decode_sparse_attention_correctness(
     q, block_table, seq_lens, topk_idx, num_pages = _build_decode_inputs(
         seq_lens_list, decode_query_len, num_padded_reqs
     )
-    kv_cache_fused = _allocate_main_kv_cache_fused(num_pages)
-    kv_cache = _main_kv_cache_from_fused(kv_cache_fused, kv_format)
+    kv_cache_stacked = _allocate_main_kv_cache(num_pages)
+    kv_cache = _main_kv_cache_for_triton(kv_cache_stacked, kv_format)
 
     actual = torch.empty_like(q)
     minimax_m3_sparse_attn_decode(
@@ -784,7 +914,7 @@ def test_decode_sparse_attention_correctness(
     prefix_lens = active_seq_lens - q_lens_t
     expected = _reference_sparse_attn(
         q[:active_tokens],
-        kv_cache_fused,
+        kv_cache,
         topk_idx[:, :active_tokens],
         block_table[:active_batch],
         q_lens_t,
@@ -792,3 +922,357 @@ def test_decode_sparse_attention_correctness(
         prefix_lens,
     )
     _assert_sparse_close(actual[:active_tokens], expected)
+
+
+# ---------------------------------------------------------------------------
+# Online decode repro (topology-faithful + bundled online golden)
+# ---------------------------------------------------------------------------
+
+
+def _online_block_table_row(seq_len: int) -> tuple[int, ...]:
+    """Logical->physical mapping like online logs for the first decode token."""
+    if seq_len == 138:
+        return ONLINE_S138_BLOCK_TABLE_PREFIX
+    num_logical_blocks = (seq_len + BLOCK_SIZE - 1) // BLOCK_SIZE
+    # Fallback: identity-ish mapping with page 0 reserved, close to online style.
+    return tuple(range(1, num_logical_blocks + 1))
+
+
+def _build_online_faithful_decode_case(
+    seq_len: int,
+    *,
+    decode_query_len: int = 1,
+    num_q_heads: int = ONLINE_W8A8_NUM_Q_HEADS,
+    num_kv_heads: int = ONLINE_W8A8_NUM_KV_HEADS,
+    block_table_max_blocks: int = ONLINE_BLOCK_TABLE_MAX_BLOCKS,
+    kv_pool_blocks: int | None = None,
+    prefill_seed: int = 0,
+    query_seed: int = 0,
+) -> dict:
+    """Build decode inputs that mirror online serving metadata, not random smoke."""
+    prefix = _online_block_table_row(seq_len)
+    block_table = torch.zeros(
+        1, block_table_max_blocks, device=DEVICE, dtype=torch.int32
+    )
+    block_table[0, : len(prefix)] = torch.tensor(prefix, device=DEVICE, dtype=torch.int32)
+
+    if kv_pool_blocks is None:
+        kv_pool_blocks = max(int(block_table.max().item()) + 1, block_table_max_blocks // 4)
+    key_cache, value_cache = _allocate_main_kv_pool(kv_pool_blocks, num_kv_heads)
+    _simulate_prefill_kv_write(
+        key_cache,
+        value_cache,
+        block_table[0],
+        seq_len,
+        seed=prefill_seed,
+    )
+
+    gen = torch.Generator(device=DEVICE)
+    gen.manual_seed(query_seed)
+    q = torch.randn(
+        decode_query_len,
+        num_q_heads,
+        HEAD_DIM,
+        device=DEVICE,
+        dtype=DTYPE,
+        generator=gen,
+    )
+
+    topk_idx = torch.full(
+        (num_kv_heads, decode_query_len, TOPK), -1, device=DEVICE, dtype=torch.int32
+    )
+    query_pos = seq_len - decode_query_len
+    current_block = query_pos // BLOCK_SIZE
+    blocks = list(range(current_block, -1, -1))[:TOPK]
+    for kv_head in range(num_kv_heads):
+        topk_idx[kv_head, 0, : len(blocks)] = torch.tensor(
+            blocks, device=DEVICE, dtype=torch.int32
+        )
+
+    seq_lens = torch.tensor([seq_len], device=DEVICE, dtype=torch.int32)
+    return {
+        "q": q,
+        "key_cache": key_cache,
+        "value_cache": value_cache,
+        "topk_idx": topk_idx,
+        "block_table": block_table,
+        "seq_lens": seq_lens,
+        "decode_query_len": decode_query_len,
+        "max_seq_len": seq_len,
+        "num_kv_heads": num_kv_heads,
+        "num_q_heads": num_q_heads,
+        "topk_row": blocks,
+        "repro_hint": f"decode_sparse_attn[seq=({seq_len},),dq={decode_query_len}]",
+    }
+
+
+def _golden_L3_S138_pt_path() -> Path:
+    """Prefer checked-in bundled fixture; allow env override or full online dump."""
+    override = os.environ.get("MINIMAX_M3_GOLDEN_L3_S138")
+    if override:
+        return Path(override)
+    if _GOLDEN_BUNDLED_PT.exists():
+        return _GOLDEN_BUNDLED_PT
+    return _GOLDEN_ONLINE_PT
+
+
+def _load_golden_fixture(path: Path) -> dict:
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    out = {
+        "q": payload["q"].to(device=DEVICE, dtype=DTYPE),
+        "key_cache": payload["key_cache"].to(device=DEVICE, dtype=DTYPE),
+        "value_cache": payload["value_cache"].to(device=DEVICE, dtype=DTYPE),
+        "topk_idx": payload["topk_idx"].to(device=DEVICE),
+        "block_table": payload["block_table"].to(device=DEVICE),
+        "seq_lens": payload["seq_lens"].to(device=DEVICE),
+        "decode_query_len": int(payload["decode_query_len"]),
+        "max_seq_len": payload.get("max_seq_len"),
+        "num_kv_heads": int(payload["num_kv_heads"]),
+        "num_q_heads": int(payload["num_q_heads"]),
+        "sm_scale": float(payload.get("sm_scale", SM_SCALE)),
+        "topk_row": payload["topk_idx"][0, 0].tolist(),
+        "repro_hint": f"golden:{payload.get('case_id', path.stem)}",
+    }
+    if "triton_out" in payload:
+        out["triton_out"] = payload["triton_out"]
+    if out["max_seq_len"] is not None:
+        out["max_seq_len"] = int(out["max_seq_len"])
+    return out
+
+
+def _golden_L3_S138_case() -> dict:
+    path = _golden_L3_S138_pt_path()
+    if not path.exists():
+        pytest.skip(
+            f"online golden not found at {path}; run serving with debug dump or set "
+            "MINIMAX_M3_GOLDEN_L3_S138"
+        )
+    return _load_golden_fixture(path)
+
+
+def _run_decode_eager_triton(case: dict, *, kv_format: str) -> torch.Tensor:
+    kv_cache = _main_kv_cache_for_triton_from_pool(
+        case["key_cache"], case["value_cache"], kv_format
+    )
+    actual = torch.empty_like(case["q"])
+    sm_scale = case.get("sm_scale", SM_SCALE)
+    minimax_m3_sparse_attn_decode(
+        case["q"],
+        kv_cache,
+        case["topk_idx"],
+        case["block_table"],
+        case["seq_lens"],
+        case["num_kv_heads"],
+        sm_scale,
+        actual,
+        case["decode_query_len"],
+    )
+    _synchronize()
+    return actual
+
+
+def _run_decode_case_and_compare(
+    case: dict,
+    *,
+    kv_format: str,
+    mean_atol: float = _SPARSE_MEAN_ATOL,
+    max_atol: float = _SPARSE_MAX_ATOL,
+) -> None:
+    kv_cache = _main_kv_cache_for_triton_from_pool(
+        case["key_cache"], case["value_cache"], kv_format
+    )
+    actual = _run_decode_eager_triton(case, kv_format=kv_format)
+
+    sm_scale = case.get("sm_scale", SM_SCALE)
+    expected = _decode_torch_reference(
+        case["q"],
+        kv_cache,
+        case["topk_idx"],
+        case["block_table"],
+        case["seq_lens"],
+        num_kv_heads=case["num_kv_heads"],
+        sm_scale=sm_scale,
+        decode_query_len=case["decode_query_len"],
+        max_seq_len=case["max_seq_len"],
+    )
+    _assert_sparse_online(
+        actual,
+        expected,
+        repro_hint=case["repro_hint"],
+        topk_row=case.get("topk_row"),
+        mean_atol=mean_atol,
+        max_atol=max_atol,
+    )
+
+
+def _assert_serving_output_matches_eager(case: dict, *, kv_format: str) -> None:
+    """Compare serving-captured triton_out (online dump) vs eager isolated Triton."""
+    if "triton_out" not in case:
+        pytest.skip("golden fixture has no triton_out (serving capture)")
+
+    dumped = case["triton_out"].float()
+    eager = _run_decode_eager_triton(case, kv_format=kv_format).float()
+
+    if torch.isnan(dumped).any():
+        if not torch.isnan(eager).any():
+            pytest.fail(
+                f"{case['repro_hint']}: online serving capture has "
+                f"{int(torch.isnan(dumped).sum().item())} NaN in triton_out, but "
+                "eager isolated Triton on the same inputs is finite. "
+                "This reproduces the online failure (serving output corrupt, kernel OK)."
+            )
+        pytest.fail(f"{case['repro_hint']}: both serving capture and eager are NaN")
+
+    err = (dumped.to(eager.device) - eager).abs()
+    if err.max().item() >= _SPARSE_MAX_ATOL:
+        pytest.fail(
+            f"{case['repro_hint']}: serving triton_out diverges from eager rerun "
+            f"(max_err={err.max().item():.6g})"
+        )
+
+
+def _assert_sparse_online(
+    actual: torch.Tensor,
+    expected: torch.Tensor,
+    *,
+    repro_hint: str,
+    topk_row: list[int] | None = None,
+    mean_atol: float = _SPARSE_MEAN_ATOL,
+    max_atol: float = _SPARSE_MAX_ATOL,
+) -> None:
+    nan_mask = torch.isnan(actual)
+    if nan_mask.any():
+        flat_actual = actual.detach().float().reshape(-1)
+        flat_expected = expected.detach().float().reshape(-1)
+        pytest.fail(
+            f"{repro_hint}: triton output has {int(nan_mask.sum().item())} nan "
+            f"elements (topk={topk_row}) "
+            f"triton_sample={flat_actual[:8].cpu().tolist()} "
+            f"torch_sample={flat_expected[:8].cpu().tolist()}"
+        )
+
+    error = (actual.float() - expected.float()).abs()
+    mean_err = error.mean().item()
+    max_err = error.max().item()
+    if mean_err >= mean_atol or max_err >= max_atol:
+        worst_idx = int(error.reshape(-1).argmax().item())
+        flat_actual = actual.reshape(-1)
+        flat_expected = expected.reshape(-1)
+        pytest.fail(
+            f"{repro_hint}: mean_err={mean_err:.6g} (tol={mean_atol}) "
+            f"max_err={max_err:.6g} (tol={max_atol}) topk={topk_row} "
+            f"worst_idx={worst_idx} triton={flat_actual[worst_idx].float().item():.6g} "
+            f"torch={flat_expected[worst_idx].float().item():.6g}"
+        )
+
+
+@pytest.mark.parametrize(
+    "seq_len",
+    ONLINE_W8A8_DECODE_SEQ_LENS,
+    ids=[f"seq{s}" for s in ONLINE_W8A8_DECODE_SEQ_LENS],
+)
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
+def test_decode_online_faithful_topology(
+    seq_len: int,
+    kv_format: str,
+) -> None:
+    """Topology-faithful decode: wide block table + KV pool + torch ref.
+
+    Mirrors online serving metadata (block_table width 80, topk [1,0,...] at
+    seq=138, 8 Q-heads / 1 KV-head). KV and query are simulated via seeded
+    random prefill — no online .pt dump required to validate the Triton kernel.
+    """
+    case = _build_online_faithful_decode_case(seq_len)
+    if seq_len == 138:
+        assert case["topk_row"][:2] == [1, 0]
+        assert case["block_table"].shape == (1, ONLINE_BLOCK_TABLE_MAX_BLOCKS)
+        assert case["block_table"][0, :3].tolist() == list(ONLINE_S138_BLOCK_TABLE_PREFIX)
+    _run_decode_case_and_compare(
+        case,
+        kv_format=kv_format,
+        mean_atol=3.0e-4,
+    )
+
+
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
+def test_decode_online_faithful_L3_S138_large_kv_pool(kv_format: str) -> None:
+    """Stress wide KV pool indexing like the engine (physical pages 1/2 in a large pool)."""
+    case = _build_online_faithful_decode_case(
+        138,
+        kv_pool_blocks=ONLINE_BLOCK_TABLE_MAX_BLOCKS,
+        prefill_seed=0,
+        query_seed=0,
+    )
+    _run_decode_case_and_compare(
+        case,
+        kv_format=kv_format,
+        mean_atol=3.0e-4,
+    )
+
+
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
+def test_decode_online_golden_L3_S138_eager_matches_torch(kv_format: str) -> None:
+    """Online dump L3_S138_DQ1_F1: eager Triton must match torch ref."""
+    case = _golden_L3_S138_case()
+    _run_decode_case_and_compare(case, kv_format=kv_format)
+
+
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
+def test_decode_online_golden_L3_S138_serving_capture_matches_eager(
+    kv_format: str,
+) -> None:
+    """Online dump: serving triton_out must match eager Triton on same inputs.
+
+    Reproduces online2_w8a8.log failure (triton_out all NaN, eager finite).
+    Fails until serving sync/graph path is fixed.
+    """
+    case = _golden_L3_S138_case()
+    _assert_serving_output_matches_eager(case, kv_format=kv_format)
+
+
+# Backward-compatible aliases.
+test_decode_bundled_golden_L3_S138_eager_matches_torch = (
+    test_decode_online_golden_L3_S138_eager_matches_torch
+)
+test_decode_bundled_golden_L3_S138_serving_capture_matches_eager = (
+    test_decode_online_golden_L3_S138_serving_capture_matches_eager
+)
+test_decode_golden_online_L3_S138_eager_matches_torch = (
+    test_decode_online_golden_L3_S138_eager_matches_torch
+)
+test_decode_golden_online_L3_S138_serving_capture_matches_eager = (
+    test_decode_online_golden_L3_S138_serving_capture_matches_eager
+)
+
+
+@pytest.mark.parametrize("kv_format", ["stacked", "tuple"])
+def test_decode_torch_reference_matches_faithful_case(kv_format: str) -> None:
+    """Sanity: production torch ref is self-consistent on the faithful topology."""
+    case = _build_online_faithful_decode_case(138)
+    kv_cache = _main_kv_cache_for_triton_from_pool(
+        case["key_cache"], case["value_cache"], kv_format
+    )
+    out_a = _decode_torch_reference(
+        case["q"],
+        kv_cache,
+        case["topk_idx"],
+        case["block_table"],
+        case["seq_lens"],
+        num_kv_heads=case["num_kv_heads"],
+        sm_scale=SM_SCALE,
+        decode_query_len=case["decode_query_len"],
+        max_seq_len=case["max_seq_len"],
+    )
+    out_b = _decode_torch_reference(
+        case["q"],
+        kv_cache,
+        case["topk_idx"],
+        case["block_table"],
+        case["seq_lens"],
+        num_kv_heads=case["num_kv_heads"],
+        sm_scale=SM_SCALE,
+        decode_query_len=case["decode_query_len"],
+        max_seq_len=None,
+    )
+    _synchronize()
+    torch.testing.assert_close(out_a, out_b)

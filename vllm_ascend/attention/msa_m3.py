@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -59,6 +60,51 @@ from vllm_ascend.ops.linear_op import get_parallel_op
 logger = init_logger(__name__)
 
 _SPARSE_ATTN_LOGGED = False
+_M3_GRAPH_DEBUG_STEP = 0
+
+
+def _m3_graph_debug_enabled() -> bool:
+    return os.environ.get("VLLM_ASCEND_MINIMAX_M3_GRAPH_DEBUG", "0") not in (
+        "0",
+        "",
+        "false",
+        "False",
+    )
+
+
+def _log_m3_graph_trace(tag: str, **fields: Any) -> None:
+    """Trace M3 metadata/forward vs ACL graph capture/replay.
+
+    Enable with: export VLLM_ASCEND_MINIMAX_M3_GRAPH_DEBUG=1
+    """
+    if not _m3_graph_debug_enabled():
+        return
+    global _M3_GRAPH_DEBUG_STEP
+    _M3_GRAPH_DEBUG_STEP += 1
+    try:
+        ctx = get_forward_context()
+    except AssertionError:
+        ctx = None
+    capturing = getattr(ctx, "capturing", False) if ctx is not None else False
+    mode = getattr(ctx, "cudagraph_runtime_mode", None) if ctx is not None else None
+    batch_desc = getattr(ctx, "batch_descriptor", None) if ctx is not None else None
+    parts = [
+        f"[M3 graph debug step={_M3_GRAPH_DEBUG_STEP}] {tag}",
+        f"capturing={capturing}",
+        f"mode={mode}",
+        f"batch={batch_desc}",
+    ]
+    for key, value in fields.items():
+        parts.append(f"{key}={value}")
+    if ctx is None:
+        parts.append("note=no_forward_context_yet")
+    elif capturing:
+        parts.append("note=ACL_graph_capture_impl_forward_runs")
+    elif mode is not None and str(mode) not in ("NONE", "CUDAGraphMode.NONE"):
+        parts.append("note=ACL_graph_replay_impl_forward_skipped")
+    else:
+        parts.append("note=eager_impl_forward_runs")
+    logger.warning(" | ".join(parts))
 
 
 class AscendMiniMaxM3IndexerBackend(AttentionBackend):
@@ -548,6 +594,7 @@ class AscendMiniMaxM3SparseMetadataBuilder(
             )
 
         decode_metadata: AscendMiniMaxM3SparseDecodeMetadata | None = None
+        decode_query_len: int | None = None
         if num_decodes > 0:
             qsl_cpu = common_attn_metadata.query_start_loc_cpu
             query_lens_cpu = qsl_cpu[1 : num_decodes + 1] - qsl_cpu[:num_decodes]
@@ -558,6 +605,19 @@ class AscendMiniMaxM3SparseMetadataBuilder(
                 max_seq_len=common_attn_metadata.max_seq_len,
                 decode_query_len=decode_query_len,
             )
+
+        _log_m3_graph_trace(
+            "sparse_metadata_builder.build",
+            num_actual_tokens=num_tokens,
+            num_input_tokens=getattr(common_attn_metadata, "num_input_tokens", None),
+            num_reqs=num_reqs,
+            num_decodes=num_decodes,
+            num_decode_tokens=num_decode_tokens,
+            num_prefills=num_prefills,
+            num_prefill_tokens=num_prefill_tokens,
+            decode_query_len=decode_query_len,
+            max_query_len=common_attn_metadata.max_query_len,
+        )
 
         return AscendMiniMaxM3SparseMetadata(
             seq_lens=seq_lens,
@@ -613,6 +673,20 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
         hd = self.head_size
         q = query[:num_tokens].view(-1, self.num_heads, hd)
         out = output[:num_tokens].view(-1, self.num_heads, hd)
+
+        _log_m3_graph_trace(
+            "sparse_impl.forward",
+            layer=layer.layer_name,
+            num_actual_tokens=num_tokens,
+            num_decode_tokens=nd,
+            num_decodes=main_md.num_decodes,
+            num_prefills=main_md.num_prefills,
+            query_shape=tuple(query.shape),
+            sliced_q_shape=tuple(q.shape),
+            decode_query_len=(
+                main_md.decode.decode_query_len if main_md.decode is not None else None
+            ),
+        )
 
         if main_md.num_decodes > 0:
             d = main_md.decode

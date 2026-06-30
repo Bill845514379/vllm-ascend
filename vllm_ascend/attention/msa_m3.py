@@ -52,6 +52,10 @@ from vllm_ascend.attention.msa_m3_triton import (
     minimax_m3_sparse_attn,
     minimax_m3_sparse_attn_decode,
 )
+from vllm_ascend.attention.msa_m3_sparse_debug import (
+    verify_sparse_attn_decode,
+    verify_sparse_attn_prefill,
+)
 from vllm_ascend.ops.linear import AscendColumnParallelLinear
 from vllm_ascend.ops.linear_op import get_parallel_op
 
@@ -628,6 +632,20 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
                 out[:nd],
                 d.decode_query_len,
             )
+            verify_sparse_attn_decode(
+                layer_name=layer.layer_name,
+                q=q[:nd],
+                kv_cache=kv_cache,
+                topk_idx=decode_topk,
+                block_table=d.block_table,
+                seq_lens=d.seq_lens,
+                num_kv_heads=self.num_kv_heads,
+                sm_scale=self.scale,
+                triton_out=out[:nd],
+                decode_query_len=d.decode_query_len,
+                num_decodes=main_md.num_decodes,
+                num_prefills=main_md.num_prefills,
+            )
 
         if main_md.num_prefills > 0:
             p = main_md.prefill
@@ -644,6 +662,22 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
                 self.num_kv_heads,
                 self.scale,
                 out[nd:],
+            )
+            verify_sparse_attn_prefill(
+                layer_name=layer.layer_name,
+                q=q[nd:],
+                kv_cache=kv_cache,
+                topk_idx=prefill_topk,
+                block_table=p.block_table,
+                cu_seqlens_q=p.cu_seqlens_q,
+                seq_lens=p.seq_lens,
+                prefix_lens=p.context_lens,
+                max_query_len=p.max_query_len,
+                num_kv_heads=self.num_kv_heads,
+                sm_scale=self.scale,
+                triton_out=out[nd:],
+                num_decodes=main_md.num_decodes,
+                num_prefills=main_md.num_prefills,
             )
         return output
 

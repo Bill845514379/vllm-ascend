@@ -163,42 +163,71 @@ def _merge_topk_pairs(
     right_indices,
     topk_size: tl.constexpr,
 ):
+    """Exact stable merge of two descending top-k runs.
+
+    `left_*` and `right_*` are already sorted in descending score order, with
+    valid 1-based indices packed before zero padding.  The function therefore
+    performs a standard two-pointer merge instead of re-running top-k on each
+    side.  Dynamic register-vector indexing is expressed as a one-hot gather.
+    """
     off_t = tl.arange(0, topk_size)
 
-    left_valid_i32 = (left_indices > 0).to(tl.int32)
-    right_valid_i32 = (right_indices > 0).to(tl.int32)
-    left_work = tl.where(left_valid_i32 != 0, left_scores, float("-inf"))
-    right_work = tl.where(right_valid_i32 != 0, right_scores, float("-inf"))
+    # Make a device scalar, rather than a Python integer, so the two cursors
+    # remain runtime Triton values from the first static-unrolled iteration.
+    zero_i32 = tl.sum(off_t.to(tl.int32) * 0, axis=0)
+    left_pos = zero_i32
+    right_pos = zero_i32
 
     out_scores = tl.full((topk_size,), -1e30, dtype=tl.float32)
     out_indices = tl.full((topk_size,), 0, dtype=tl.int32)
 
     for rank in tl.static_range(0, topk_size):
-        left_best = tl.max(left_work, axis=0)
-        left_offset = tl.argmax(left_work, axis=0).to(tl.int32)
-        right_best = tl.max(right_work, axis=0)
-        right_offset = tl.argmax(right_work, axis=0).to(tl.int32)
+        # Triton register vectors cannot be indexed directly by a runtime
+        # scalar.  Each one-hot mask gathers the current head from its sorted
+        # run.  When a cursor reaches topk_size, the mask is all zero and the
+        # gathered index becomes zero, i.e. an invalid/padded head.
+        left_head_i32 = (off_t == left_pos).to(tl.int32)
+        right_head_i32 = (off_t == right_pos).to(tl.int32)
 
-        take_left_i32 = (left_best >= right_best).to(tl.int32)
-
-        left_selected_i32 = (
-            (off_t == left_offset).to(tl.int32) * left_valid_i32
+        left_score = tl.sum(
+            tl.where(left_head_i32 != 0, left_scores, 0.0),
+            axis=0,
         )
-        right_selected_i32 = (
-            (off_t == right_offset).to(tl.int32) * right_valid_i32
+        right_score = tl.sum(
+            tl.where(right_head_i32 != 0, right_scores, 0.0),
+            axis=0,
         )
         left_index = tl.sum(
-            tl.where(left_selected_i32 != 0, left_indices, 0),
+            tl.where(left_head_i32 != 0, left_indices, 0),
             axis=0,
         ).to(tl.int32)
         right_index = tl.sum(
-            tl.where(right_selected_i32 != 0, right_indices, 0),
+            tl.where(right_head_i32 != 0, right_indices, 0),
             axis=0,
         ).to(tl.int32)
 
-        best_score = tl.where(take_left_i32 != 0, left_best, right_best)
-        best_index = tl.where(take_left_i32 != 0, left_index, right_index)
-        has_best_i32 = (best_index > 0).to(tl.int32)
+        left_has_i32 = (left_index > 0).to(tl.int32)
+        right_has_i32 = (right_index > 0).to(tl.int32)
+        left_ge_right_i32 = (left_score >= right_score).to(tl.int32)
+
+        # Prefer the left run for equal scores.  The arithmetic form avoids a
+        # scalar boolean control-flow path in Ascend Triton lowering.
+        take_left_i32 = left_has_i32 * (
+            (1 - right_has_i32) + right_has_i32 * left_ge_right_i32
+        )
+        take_right_i32 = right_has_i32 * (1 - take_left_i32)
+        has_best_i32 = take_left_i32 + take_right_i32
+
+        best_score = tl.where(
+            take_left_i32 != 0,
+            left_score,
+            right_score,
+        )
+        best_index = tl.where(
+            take_left_i32 != 0,
+            left_index,
+            right_index,
+        )
 
         out_scores = tl.where(
             off_t == rank,
@@ -211,12 +240,11 @@ def _merge_topk_pairs(
             out_indices,
         )
 
-        left_remove_i32 = left_selected_i32 * take_left_i32
-        right_remove_i32 = right_selected_i32 * (1 - take_left_i32)
-        left_valid_i32 = left_valid_i32 * (1 - left_remove_i32)
-        right_valid_i32 = right_valid_i32 * (1 - right_remove_i32)
-        left_work = tl.where(left_remove_i32 != 0, float("-inf"), left_work)
-        right_work = tl.where(right_remove_i32 != 0, float("-inf"), right_work)
+        # Advance exactly one cursor after emitting a real candidate.  Once
+        # both runs are exhausted, both increments are zero and the remaining
+        # output positions stay padded.
+        left_pos = left_pos + take_left_i32
+        right_pos = right_pos + take_right_i32
 
     return out_scores, out_indices
 
@@ -548,6 +576,7 @@ def _topk_finalize_kernel(
 
     indices = tl.load(
         indices_partial_ptr
+        + 0 * stride_pi_c
         + pid_h * stride_pi_h
         + pid_n * stride_pi_n
         + off_t * stride_pi_t,

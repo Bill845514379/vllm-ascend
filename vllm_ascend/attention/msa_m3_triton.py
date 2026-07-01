@@ -1009,14 +1009,40 @@ def _gqa_sparse_decode_kernel(
     )
     q = tl.load(q_ptrs, boundary_check=(0, 1), padding_option="zero")
 
+    # A nonnegative top-k id is not sufficient to make a block usable:
+    # metadata may transiently lag top-k production during serving, e.g.
+    # topk=[1, 0, ...] while seq_len is still 128.  Block 1 is then fully
+    # outside kv_len.  Do not send such a fully masked block into online
+    # softmax, otherwise exp2(-inf - -inf) produces NaN.
+    #
+    # `real_topk * 0` is a device scalar with int32 dtype.  It tracks whether
+    # this split-K chunk processed at least one block with a visible token.
+    chunk_has_visible_i32 = real_topk * 0
+
     cur_idx_ptr = idx_base + chunk_start_topk * stride_tk
     for _ in tl.range(chunk_start_topk, chunk_end_topk):
         blk = tl.load(cur_idx_ptr).to(tl.int32)
         cur_idx_ptr = cur_idx_ptr + stride_tk
         c = blk * BLOCK_SIZE_K
-        page = tl.load(bt_row + blk).to(tl.int64)
+
+        # This also makes an accidental interior -1 top-k hole harmless:
+        # masked page/K/V loads use page 0 but do not dereference it.
+        block_has_visible_i32 = (
+            (blk >= 0) & (c < kv_len)
+        ).to(tl.int32)
+        chunk_has_visible_i32 = tl.maximum(
+            chunk_has_visible_i32,
+            block_has_visible_i32,
+        )
+
+        page = tl.load(
+            bt_row + blk,
+            mask=block_has_visible_i32 != 0,
+            other=0,
+        ).to(tl.int64)
         pos = c + off_n
-        pos_mask = pos < kv_len
+        pos_mask = (pos < kv_len) & (block_has_visible_i32 != 0)
+
         k = tl.load(
             k_cache_ptr
             + page * stride_k_blk
@@ -1028,13 +1054,23 @@ def _gqa_sparse_decode_kernel(
         )
         if USE_FP8:
             k = k.to(q.dtype)
+
         qk = tl.zeros((BLOCK_SIZE_H, BLOCK_SIZE_K), dtype=tl.float32)
         qk += tl.where(pos_mask[None, :], 0, float("-inf"))
         qk += tl.dot(q, k) * sm_scale_log2e
         m_ij = tl.maximum(m_i, tl.max(qk, axis=1))
-        p = tl.exp2(qk - m_ij[:, None])
+
+        # Keep both operands finite before the subtraction.  `tl.where` is
+        # not assumed to protect an invalid inactive branch on Ascend.
+        safe_qk = tl.where(block_has_visible_i32 != 0, qk, 0.0)
+        safe_m_ij = tl.where(block_has_visible_i32 != 0, m_ij, 0.0)
+        p = tl.exp2(safe_qk - safe_m_ij[:, None])
+        p = tl.where(block_has_visible_i32 != 0, p, 0.0)
         l_ij = tl.sum(p, axis=1)
-        acc_o = acc_o * tl.exp2(m_i - m_ij)[:, None]
+
+        safe_m_i = tl.where(block_has_visible_i32 != 0, m_i, 0.0)
+        acc_o_candidate = acc_o * tl.exp2(safe_m_i - safe_m_ij)[:, None]
+
         v = tl.load(
             v_cache_ptr
             + page * stride_v_blk
@@ -1046,17 +1082,42 @@ def _gqa_sparse_decode_kernel(
         )
         if USE_FP8:
             v = v.to(q.dtype)
-        acc_o += tl.dot(p.to(v.dtype), v)
-        m_i = m_ij
-        lse_i = m_ij + tl.log2(tl.exp2(lse_i - m_ij) + l_ij)
+        acc_o_candidate += tl.dot(p.to(v.dtype), v)
+
+        safe_lse_i = tl.where(block_has_visible_i32 != 0, lse_i, 0.0)
+        lse_candidate = safe_m_ij + tl.log2(
+            tl.exp2(safe_lse_i - safe_m_ij) + l_ij
+        )
+
+        # A fully invisible selected block must be a no-op for the online
+        # state; a later visible block in the same split-K chunk remains valid.
+        acc_o = tl.where(
+            block_has_visible_i32 != 0,
+            acc_o_candidate,
+            acc_o,
+        )
+        m_i = tl.where(block_has_visible_i32 != 0, m_ij, m_i)
+        lse_i = tl.where(block_has_visible_i32 != 0, lse_candidate, lse_i)
 
     if USE_PDL:
         tl.extra.cuda.gdc_launch_dependents()
 
-    # Empty chunks for active rows must store zero output; otherwise the merge
-    # can hit 0 * NaN. All-empty padded rows may still produce NaNs in merge.
-    scale = tl.where(lse_i > float("-inf"), tl.exp2(m_i - lse_i), tl.zeros_like(lse_i))
+    # Empty chunks include both padded top-k slots and nonnegative selected
+    # blocks that are wholly beyond kv_len.  Store finite LSE sentinels so the
+    # merge is also safe when *every* split-K chunk is empty.
+    safe_m_i = tl.where(chunk_has_visible_i32 != 0, m_i, 0.0)
+    safe_lse_i = tl.where(chunk_has_visible_i32 != 0, lse_i, 0.0)
+    scale = tl.where(
+        chunk_has_visible_i32 != 0,
+        tl.exp2(safe_m_i - safe_lse_i),
+        tl.zeros_like(safe_lse_i),
+    )
     acc_o = acc_o * scale[:, None]
+    lse_to_store = tl.where(
+        chunk_has_visible_i32 != 0,
+        lse_i,
+        -1.0e30,
+    )
     o_ptrs = tl.make_block_ptr(
         base=o_ptr + pid_c * stride_o_c + pid_b * stride_o_b + pid_h * stride_o_h,
         shape=(gqa_group_size, head_dim),
@@ -1074,7 +1135,7 @@ def _gqa_sparse_decode_kernel(
         block_shape=(BLOCK_SIZE_H,),
         order=(0,),
     )
-    tl.store(lse_ptrs, lse_i.to(lse_ptr.dtype.element_ty), boundary_check=(0,))
+    tl.store(lse_ptrs, lse_to_store.to(lse_ptr.dtype.element_ty), boundary_check=(0,))
 
 
 @triton.heuristics(

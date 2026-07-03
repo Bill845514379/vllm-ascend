@@ -7,6 +7,10 @@ from __future__ import annotations
 import pytest
 import torch
 
+from tests.ut.attention.sparse_decode_bad_case.loader import (
+    load_sparse_decode_dump,
+    sparse_decode_inputs_from_dump,
+)
 from vllm_ascend.attention.msa_m3_ops import (
     SPARSE_BLOCK_SIZE,
     minimax_m3_index_decode_torch,
@@ -521,3 +525,37 @@ def test_decode_sparse_attn_torch(
         prefix_lens,
     )
     _assert_sparse_close(actual[:active_tokens], expected)
+
+
+def test_decode_sparse_attention_layer_003_w8a8_bad_case_torch(
+    device: torch.device,
+) -> None:
+    """Replay layer-003 w8a8 sparse decode with dumped torch_w8a8 inputs."""
+    dump = load_sparse_decode_dump("torch_w8a8")
+    (
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        decode_query_len,
+    ) = sparse_decode_inputs_from_dump(dump, device=device)
+    expected = dump["output"].to(device)
+
+    actual = torch.empty_like(q)
+    minimax_m3_sparse_attn_decode_torch(
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        actual,
+        decode_query_len,
+    )
+
+    assert torch.isfinite(actual).all()
+    _assert_sparse_close(actual, expected)

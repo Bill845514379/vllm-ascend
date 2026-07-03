@@ -17,6 +17,11 @@ from dataclasses import dataclass
 import pytest
 import torch
 
+from tests.ut.attention.sparse_decode_bad_case.loader import (
+    load_sparse_decode_dump,
+    sparse_decode_inputs_from_dump,
+)
+from vllm_ascend.attention.msa_m3_ops import minimax_m3_sparse_attn_decode_torch
 from vllm_ascend.attention.msa_m3_triton import (
     SPARSE_BLOCK_SIZE,
     minimax_m3_index_decode,
@@ -1757,4 +1762,60 @@ def test_decode_sparse_attention_boundary_repeatable() -> None:
                 f"{hint}; launch={launch_id}; output changed across eager launches; "
                 f"max_delta={delta:.6g}"
             )
+
+
+def test_decode_sparse_attention_layer_003_w8a8_bad_case_triton() -> None:
+    """Reproduce layer-003 w8a8 sparse decode mismatch from online serving.
+
+    Uses dumped triton_w8a8 inputs and compares Triton decode against the torch
+    oracle on the same tensors. The captured production run produced NaN output.
+    """
+    dump = load_sparse_decode_dump("triton_w8a8")
+    saved_output = dump["output"]
+    assert not torch.isfinite(saved_output).all(), (
+        "expected captured triton_w8a8 dump output to contain the production bad case"
+    )
+
+    (
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        decode_query_len,
+    ) = sparse_decode_inputs_from_dump(dump, device=DEVICE)
+
+    actual = torch.empty_like(q)
+    minimax_m3_sparse_attn_decode(
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        actual,
+        decode_query_len,
+    )
+    _synchronize()
+
+    expected = torch.empty_like(q)
+    minimax_m3_sparse_attn_decode_torch(
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        expected,
+        decode_query_len,
+    )
+
+    assert torch.isfinite(actual).all(), (
+        "layer_003 triton_w8a8 sparse decode produced non-finite values"
+    )
+    _assert_sparse_close(actual, expected)
 

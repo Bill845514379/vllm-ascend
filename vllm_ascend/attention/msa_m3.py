@@ -44,6 +44,11 @@ from vllm.v1.kv_cache_interface import (
     get_kv_quant_mode,
 )
 
+from vllm_ascend.attention.msa_m3_ops import minimax_m3_sparse_attn_decode_torch
+from vllm_ascend.attention.msa_m3_sparse_decode_dump import (
+    maybe_dump_sparse_decode,
+    sparse_decode_use_torch,
+)
 from vllm_ascend.attention.msa_m3_triton import (
     SPARSE_BLOCK_SIZE,
     minimax_m3_index_decode,
@@ -617,16 +622,45 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
         if main_md.num_decodes > 0:
             d = main_md.decode
             assert d is not None and decode_topk is not None
-            minimax_m3_sparse_attn_decode(
-                q[:nd],
-                kv_cache,
-                decode_topk,
-                d.block_table,
-                d.seq_lens,
-                self.num_kv_heads,
-                self.scale,
-                out[:nd],
-                d.decode_query_len,
+            decode_q = q[:nd]
+            decode_out = out[:nd]
+            if sparse_decode_use_torch():
+                minimax_m3_sparse_attn_decode_torch(
+                    decode_q,
+                    kv_cache,
+                    decode_topk,
+                    d.block_table,
+                    d.seq_lens,
+                    self.num_kv_heads,
+                    self.scale,
+                    decode_out,
+                    d.decode_query_len,
+                )
+            else:
+                minimax_m3_sparse_attn_decode(
+                    decode_q,
+                    kv_cache,
+                    decode_topk,
+                    d.block_table,
+                    d.seq_lens,
+                    self.num_kv_heads,
+                    self.scale,
+                    decode_out,
+                    d.decode_query_len,
+                )
+            if decode_q.device.type == "npu":
+                torch.npu.synchronize()
+            maybe_dump_sparse_decode(
+                layer_name=layer.layer_name,
+                q=decode_q,
+                kv_cache=kv_cache,
+                topk_idx=decode_topk,
+                block_table=d.block_table,
+                seq_lens=d.seq_lens,
+                num_kv_heads=self.num_kv_heads,
+                sm_scale=self.scale,
+                output=decode_out,
+                decode_query_len=d.decode_query_len,
             )
 
         if main_md.num_prefills > 0:

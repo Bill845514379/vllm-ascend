@@ -534,3 +534,246 @@ def minimax_m3_sparse_attn_decode_torch(
         num_reqs * decode_query_len, num_heads, head_dim
     )
     output[: num_reqs * decode_query_len] = out
+
+
+def _gather_decode_kv_bnsd(
+    k_cache: torch.Tensor,
+    v_cache: torch.Tensor,
+    block_table: torch.Tensor,
+    num_reqs: int,
+    max_blocks: int,
+    num_kv_heads: int,
+    head_dim: int,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Materialize paged KV as BNSD [batch, num_kv_heads, max_blocks * block, head_dim]."""
+    pages = block_table[:num_reqs, :max_blocks].long()
+    if k_cache.ndim == 4:
+        k_blocks = k_cache[pages]
+        v_blocks = v_cache[pages]
+    elif k_cache.ndim == 5 and k_cache.shape[2] == 1:
+        k_blocks = k_cache[pages, :, 0]
+        v_blocks = v_cache[pages, :, 0]
+    else:
+        raise ValueError(f"Unexpected main kv cache ndim: {k_cache.ndim}")
+
+    kv_len = max_blocks * SPARSE_BLOCK_SIZE
+    k_bnsd = (
+        k_blocks.permute(0, 3, 1, 2, 4)
+        .reshape(num_reqs, num_kv_heads, kv_len, head_dim)
+        .contiguous()
+    )
+    v_bnsd = (
+        v_blocks.permute(0, 3, 1, 2, 4)
+        .reshape(num_reqs, num_kv_heads, kv_len, head_dim)
+        .contiguous()
+    )
+    return k_bnsd, v_bnsd
+
+
+def _build_decode_block_sparse_mask(
+    topk_idx: torch.Tensor,
+    block_table: torch.Tensor,
+    num_reqs: int,
+    num_heads: int,
+    num_kv_heads: int,
+    decode_query_len: int,
+    max_blocks: int,
+    seq_lens: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Build BSA mask [batch, headNum, q_blocks, kv_blocks] from per-kv-head topk."""
+    gqa = num_heads // num_kv_heads
+    active_tokens = num_reqs * decode_query_len
+    topk = topk_idx.shape[-1]
+    selected = topk_idx[:, :active_tokens].reshape(
+        num_kv_heads, num_reqs, decode_query_len, topk
+    ).long()
+    bt = block_table[:num_reqs, :max_blocks].long()
+    gathered_pages = torch.gather(
+        bt[None, :, None, :].expand(
+            num_kv_heads, num_reqs, decode_query_len, max_blocks
+        ),
+        -1,
+        selected.clamp(0, max_blocks - 1),
+    )
+    valid = (selected >= 0) & (selected < max_blocks) & (gathered_pages >= 0)
+    if seq_lens is not None:
+        q_offsets = torch.arange(decode_query_len, device=topk_idx.device)
+        q_abs = seq_lens[:num_reqs, None].long() - decode_query_len + q_offsets[None, :]
+        visible_blocks = torch.div(
+            q_abs + SPARSE_BLOCK_SIZE, SPARSE_BLOCK_SIZE, rounding_mode="floor"
+        ).clamp(min=0, max=max_blocks)
+        valid = valid & (selected < visible_blocks[None, :, :, None])
+
+    selected_heads = (
+        selected.unsqueeze(1)
+        .expand(num_kv_heads, gqa, num_reqs, decode_query_len, topk)
+        .reshape(num_heads, num_reqs, decode_query_len, topk)
+    )
+    valid_heads = (
+        valid.unsqueeze(1)
+        .expand(num_kv_heads, gqa, num_reqs, decode_query_len, topk)
+        .reshape(num_heads, num_reqs, decode_query_len, topk)
+    )
+    sel = selected_heads.permute(1, 0, 2, 3)
+    val = valid_heads.permute(1, 0, 2, 3)
+    block_ids = torch.arange(max_blocks, device=topk_idx.device).view(
+        1, 1, 1, 1, max_blocks
+    )
+    hit = (sel.unsqueeze(-1) == block_ids) & val.unsqueeze(-1)
+    return hit.any(dim=-2).to(torch.int8)
+
+
+def _resolve_decode_bsa_kv_lengths(
+    seq_lens: torch.Tensor,
+    num_reqs: int,
+    decode_query_len: int,
+    actual_seq_lengths_kv: list[int] | None,
+) -> list[int]:
+    if actual_seq_lengths_kv is not None:
+        active_tokens = num_reqs * decode_query_len
+        if decode_query_len == 1:
+            return list(actual_seq_lengths_kv[:num_reqs])
+        return list(actual_seq_lengths_kv[:active_tokens])
+    if decode_query_len == 1:
+        return seq_lens[:num_reqs].detach().cpu().tolist()
+    q_offsets = torch.arange(decode_query_len, dtype=torch.long, device=seq_lens.device)
+    q_abs = seq_lens[:num_reqs, None].long() - decode_query_len + q_offsets[None, :]
+    return (q_abs + 1).reshape(-1).detach().cpu().tolist()
+
+
+@torch.no_grad()
+def minimax_m3_sparse_attn_decode_bsa(
+    q: torch.Tensor,
+    kv_cache: torch.Tensor | tuple[torch.Tensor, torch.Tensor],
+    topk_idx: torch.Tensor,
+    block_table: torch.Tensor,
+    seq_lens: torch.Tensor,
+    num_kv_heads: int,
+    sm_scale: float,
+    output: torch.Tensor,
+    decode_query_len: int,
+    max_seq_len: int | None = None,
+    actual_seq_lengths_kv: list[int] | None = None,
+) -> None:
+    """Decode sparse attention via ``torch_npu.npu_block_sparse_attention`` (BNSD)."""
+    log_sparse_attention_used()
+    try:
+        import torch_npu
+    except ImportError:
+        minimax_m3_sparse_attn_decode_torch(
+            q, kv_cache, topk_idx, block_table, seq_lens,
+            num_kv_heads, sm_scale, output, decode_query_len, max_seq_len,
+        )
+        return
+
+    if max_seq_len is None:
+        max_seq_len = block_table.shape[-1] * SPARSE_BLOCK_SIZE
+
+    k_cache, v_cache = _get_main_kv_caches(kv_cache)
+    total_q, num_heads, head_dim = q.shape
+    num_reqs = min(seq_lens.shape[0], total_q // decode_query_len)
+    if num_reqs <= 0:
+        return
+
+    table_blocks = block_table.shape[-1]
+    seq_blocks = max(1, math.ceil(max_seq_len / SPARSE_BLOCK_SIZE))
+    max_blocks = min(table_blocks, seq_blocks)
+    active_tokens = num_reqs * decode_query_len
+    block_shape = [1, SPARSE_BLOCK_SIZE]
+    kv_lens = _resolve_decode_bsa_kv_lengths(
+        seq_lens, num_reqs, decode_query_len, actual_seq_lengths_kv
+    )
+
+    k_bnsd, v_bnsd = _gather_decode_kv_bnsd(
+        k_cache, v_cache, block_table, num_reqs, max_blocks, num_kv_heads, head_dim
+    )
+
+    if decode_query_len == 1:
+        q_bnsd = q[:active_tokens].view(num_reqs, num_heads, 1, head_dim)
+        mask = _build_decode_block_sparse_mask(
+            topk_idx,
+            block_table,
+            num_reqs,
+            num_heads,
+            num_kv_heads,
+            1,
+            max_blocks,
+            seq_lens[:num_reqs],
+        )
+        attn_out, _ = torch_npu.npu_block_sparse_attention(
+            q_bnsd,
+            k_bnsd,
+            v_bnsd,
+            mask,
+            block_shape,
+            q_input_layout="BNSD",
+            kv_input_layout="BNSD",
+            num_key_value_heads=num_kv_heads,
+            scale_value=sm_scale,
+            inner_precise=0,
+            actual_seq_lengths=[1] * num_reqs,
+            actual_seq_lengths_kv=kv_lens,
+        )
+        output[:active_tokens] = attn_out.reshape(active_tokens, num_heads, head_dim)
+        return
+
+    # decode_query_len > 1: flatten to per-token batch and run per kv-head (GQA group).
+    gqa = num_heads // num_kv_heads
+    q_view = (
+        q[:active_tokens]
+        .view(num_reqs, decode_query_len, num_heads, head_dim)
+        .permute(0, 2, 1, 3)
+    )
+    out_view = (
+        output[:active_tokens]
+        .view(num_reqs, decode_query_len, num_heads, head_dim)
+        .permute(0, 2, 1, 3)
+    )
+    for kv_h in range(num_kv_heads):
+        q_h = (
+            q_view[:, kv_h * gqa : (kv_h + 1) * gqa, :, :]
+            .permute(0, 2, 1, 3)
+            .reshape(active_tokens, gqa, 1, head_dim)
+        )
+        k_h = (
+            k_bnsd[:, kv_h : kv_h + 1, :, :]
+            .repeat_interleave(decode_query_len, dim=0)
+        )
+        v_h = (
+            v_bnsd[:, kv_h : kv_h + 1, :, :]
+            .repeat_interleave(decode_query_len, dim=0)
+        )
+        topk_h = topk_idx[kv_h : kv_h + 1, :active_tokens].reshape(
+            1, active_tokens, 1, -1
+        )
+        bt_expanded = block_table[:num_reqs].repeat_interleave(decode_query_len, dim=0)
+        mask_h = _build_decode_block_sparse_mask(
+            topk_h,
+            bt_expanded,
+            active_tokens,
+            gqa,
+            1,
+            1,
+            max_blocks,
+            seq_lens[:num_reqs].repeat_interleave(decode_query_len, dim=0),
+        )
+        attn_out, _ = torch_npu.npu_block_sparse_attention(
+            q_h,
+            k_h,
+            v_h,
+            mask_h,
+            block_shape,
+            q_input_layout="BNSD",
+            kv_input_layout="BNSD",
+            num_key_value_heads=1,
+            scale_value=sm_scale,
+            inner_precise=0,
+            actual_seq_lengths=[1] * active_tokens,
+            actual_seq_lengths_kv=kv_lens,
+        )
+        out_view[:, kv_h * gqa : (kv_h + 1) * gqa, :, :] = attn_out.reshape(
+            num_reqs, gqa, decode_query_len, head_dim
+        )
+    output[:active_tokens] = out_view.permute(0, 2, 1, 3).reshape(
+        active_tokens, num_heads, head_dim
+    )

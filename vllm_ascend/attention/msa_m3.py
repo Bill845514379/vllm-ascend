@@ -49,8 +49,11 @@ from vllm_ascend.attention.msa_m3_triton import (
     minimax_m3_index_score,
     minimax_m3_index_topk,
     minimax_m3_sparse_attn,
-    minimax_m3_sparse_attn_decode,
+    # minimax_m3_sparse_attn_decode,
 )
+
+from vllm_ascend.attention.msa_m3_ops import minimax_m3_sparse_attn_decode_bsa as minimax_m3_sparse_attn_decode
+
 from vllm_ascend.ops.linear import AscendColumnParallelLinear
 from vllm_ascend.ops.linear_op import get_parallel_op
 
@@ -464,6 +467,7 @@ class AscendMiniMaxM3SparseDecodeMetadata:
     block_table: torch.Tensor
     max_seq_len: int
     decode_query_len: int
+    actual_seq_lengths_kv: list[int]
 
 
 @dataclass
@@ -551,11 +555,16 @@ class AscendMiniMaxM3SparseMetadataBuilder(
             qsl_cpu = common_attn_metadata.query_start_loc_cpu
             query_lens_cpu = qsl_cpu[1 : num_decodes + 1] - qsl_cpu[:num_decodes]
             decode_query_len = int(query_lens_cpu[0].item())
+            seq_lens_cpu = common_attn_metadata.seq_lens_cpu[:num_decodes].long()
+            q_offsets = torch.arange(decode_query_len, dtype=torch.long)
+            q_abs = seq_lens_cpu[:, None] - decode_query_len + q_offsets[None, :]
+            actual_seq_lengths_kv = (q_abs.reshape(-1) + 1).tolist()
             decode_metadata = AscendMiniMaxM3SparseDecodeMetadata(
                 seq_lens=seq_lens[:num_decodes],
                 block_table=block_table[:num_decodes],
                 max_seq_len=common_attn_metadata.max_seq_len,
                 decode_query_len=decode_query_len,
+                actual_seq_lengths_kv=actual_seq_lengths_kv,
             )
 
         return AscendMiniMaxM3SparseMetadata(
@@ -626,6 +635,8 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
                 self.scale,
                 out[:nd],
                 d.decode_query_len,
+                d.max_seq_len,
+                d.actual_seq_lengths_kv,
             )
 
         if main_md.num_prefills > 0:

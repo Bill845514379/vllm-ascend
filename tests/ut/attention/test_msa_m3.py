@@ -434,6 +434,7 @@ def test_sparse_impl_forward_dispatches_decode_and_prefill_paths(
             block_table=torch.tensor([[0, 1]], dtype=torch.int32),
             max_seq_len=5,
             decode_query_len=1,
+            actual_seq_lengths_kv=[5],
         ),
         prefill=AscendMiniMaxM3SparsePrefillMetadata(
             cu_seqlens_q=torch.tensor([0, 2], dtype=torch.int32),

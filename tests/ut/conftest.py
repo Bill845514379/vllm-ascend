@@ -138,7 +138,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=("triton", "torch_npu"),
         help=(
             "MiniMax M3 sparse-attention kernel backend for "
-            "test_minimax_m3_sparse_attn.py: triton (default) or torch_npu."
+            "test_minimax_m3_sparse_attn.py: triton reference or msa_m3_npu (torch_npu)."
         ),
     )
 

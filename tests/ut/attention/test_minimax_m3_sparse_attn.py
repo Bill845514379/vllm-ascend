@@ -2,10 +2,11 @@
 # Copyright (c) 2025 Huawei Technologies Co., Ltd. All Rights Reserved.
 """Correctness tests for MiniMax M3 sparse-attention kernels on Ascend.
 
-Covers ``msa_m3_triton`` index top-k and block-sparse attention operators, and
-optionally ``torch_npu.npu_sparse_attention_score`` (vllm-ascend CANN op).
+Covers ``msa_m3_triton`` index top-k operators, ``msa_m3_npu`` block-sparse
+attention (``npu_sparse_attention_score``), and optionally compares against the
+Triton sparse-attention reference.
 
-Default backend is Triton. Select the NPU op with::
+Default sparse-attention backend is Triton. Select the NPU op with::
 
     pytest tests/ut/attention/test_minimax_m3_sparse_attn.py --msa-m3-sparse-backend=torch_npu
 
@@ -25,13 +26,17 @@ from typing import Literal
 import pytest
 import torch
 
+from vllm_ascend.attention.msa_m3_npu import (
+    minimax_m3_sparse_attn,
+    minimax_m3_sparse_attn_decode,
+)
 from vllm_ascend.attention.msa_m3_triton import (
     SPARSE_BLOCK_SIZE,
     minimax_m3_index_decode,
     minimax_m3_index_score,
     minimax_m3_index_topk,
-    minimax_m3_sparse_attn,
-    minimax_m3_sparse_attn_decode,
+    minimax_m3_sparse_attn as minimax_m3_sparse_attn_triton,
+    minimax_m3_sparse_attn_decode as minimax_m3_sparse_attn_decode_triton,
 )
 
 NPU_AVAILABLE = hasattr(torch, "npu") and torch.npu.is_available()
@@ -100,7 +105,7 @@ def msa_m3_sparse_backend(request: pytest.FixtureRequest) -> SparseAttnBackend:
     if backend == "torch_npu":
         if not NPU_AVAILABLE:
             pytest.skip("torch_npu sparse backend requires NPU.")
-        _register_npu_sparse_attention_score_op()
+        _ensure_npu_sparse_attention_score_op()
     return backend
 
 
@@ -119,13 +124,11 @@ def should_do_global_cleanup_after_test() -> bool:
     return False
 
 
-def _register_npu_sparse_attention_score_op() -> None:
-    """Bind ``npu_sparse_attention_score`` from vllm-ascend custom ops."""
+def _ensure_npu_sparse_attention_score_op() -> None:
+    """Ensure ``torch.ops._C_ascend.npu_sparse_attention_score`` is available."""
     global _NPU_SPARSE_OP_REGISTERED
     if _NPU_SPARSE_OP_REGISTERED:
         return
-
-    import torch_npu
 
     from vllm_ascend.utils import bootstrap_custom_op_env, enable_custom_op
 
@@ -137,19 +140,14 @@ def _register_npu_sparse_attention_score_op() -> None:
     torch.npu.synchronize()
 
     try:
-        npu_sparse_attention_score = torch.ops._C_ascend.npu_sparse_attention_score
+        _ = torch.ops._C_ascend.npu_sparse_attention_score
     except AttributeError:
         pytest.skip(
             "torch.ops._C_ascend.npu_sparse_attention_score is not available. "
             "Rebuild with: pip install -v --no-build-isolation -e ."
         )
 
-    torch_npu.npu_sparse_attention_score = npu_sparse_attention_score
     _NPU_SPARSE_OP_REGISTERED = True
-
-
-def _select_num_idx_from_topk(topk_idx: torch.Tensor) -> torch.Tensor:
-    return (topk_idx >= 0).sum(dim=-1).to(dtype=torch.int32)
 
 
 def _sparse_tolerances(_backend: SparseAttnBackend) -> tuple[float, float]:
@@ -173,8 +171,9 @@ def _run_prefill_sparse_attention(
     sm_scale: float,
     output: torch.Tensor,
 ) -> None:
+    del kv_cache_fused, q_lens_t
     if backend == "triton":
-        minimax_m3_sparse_attn(
+        minimax_m3_sparse_attn_triton(
             q,
             kv_cache,
             topk_idx,
@@ -189,26 +188,20 @@ def _run_prefill_sparse_attention(
         )
         return
 
-    import torch_npu
-
-    key = kv_cache_fused[:, 0]
-    value = kv_cache_fused[:, 1]
-    out = torch_npu.npu_sparse_attention_score(
+    minimax_m3_sparse_attn(
         q,
-        key,
-        value,
+        kv_cache,
         topk_idx,
         block_table,
-        select_num_idx=_select_num_idx_from_topk(topk_idx),
-        actual_seq_lengths=q_lens_t,
-        actual_seq_lengths_kv=seq_lens,
-        num_key_value_heads=num_kv_heads,
-        scale_value=sm_scale,
+        cu_seqlens,
+        seq_lens,
+        prefix_lens,
+        max_seqlen_q,
+        num_kv_heads,
+        sm_scale,
+        output,
         block_size=BLOCK_SIZE,
-        top_k=topk_idx.shape[-1],
-        inner_precise=4,
     )
-    output.copy_(out)
 
 
 def _run_decode_sparse_attention(
@@ -226,17 +219,9 @@ def _run_decode_sparse_attention(
     decode_query_len: int,
     active_batch: int,
 ) -> None:
-    active_tokens = active_batch * decode_query_len
-    q_active = q[:active_tokens]
-    topk_active = topk_idx[:, :active_tokens]
-    block_table_active = block_table[:active_batch]
-    seq_lens_active = seq_lens[:active_batch]
-    q_lens_t = torch.full(
-        (active_batch,), decode_query_len, device=q.device, dtype=torch.int32
-    )
-
+    del kv_cache_fused, active_batch
     if backend == "triton":
-        minimax_m3_sparse_attn_decode(
+        minimax_m3_sparse_attn_decode_triton(
             q,
             kv_cache,
             topk_idx,
@@ -249,26 +234,18 @@ def _run_decode_sparse_attention(
         )
         return
 
-    import torch_npu
-
-    key = kv_cache_fused[:, 0]
-    value = kv_cache_fused[:, 1]
-    out = torch_npu.npu_sparse_attention_score(
-        q_active,
-        key,
-        value,
-        topk_active,
-        block_table_active,
-        select_num_idx=_select_num_idx_from_topk(topk_active),
-        actual_seq_lengths=q_lens_t,
-        actual_seq_lengths_kv=seq_lens_active,
-        num_key_value_heads=num_kv_heads,
-        scale_value=sm_scale,
+    minimax_m3_sparse_attn_decode(
+        q,
+        kv_cache,
+        topk_idx,
+        block_table,
+        seq_lens,
+        num_kv_heads,
+        sm_scale,
+        output,
+        decode_query_len,
         block_size=BLOCK_SIZE,
-        top_k=topk_active.shape[-1],
-        inner_precise=4,
     )
-    output[:active_tokens].copy_(out)
 
 
 def _synchronize() -> None:
@@ -1825,7 +1802,7 @@ def _run_decode_boundary_case(
     )
 
     actual = torch.empty_like(q)
-    minimax_m3_sparse_attn_decode(
+    minimax_m3_sparse_attn_decode_triton(
         q,
         kv_cache,
         topk_idx,
@@ -1954,7 +1931,7 @@ def test_decode_sparse_attention_boundary_repeatable(
     first: torch.Tensor | None = None
     for launch_id in range(_DECODE_BOUNDARY_REPEAT_LAUNCHES):
         actual = torch.empty_like(q)
-        minimax_m3_sparse_attn_decode(
+        minimax_m3_sparse_attn_decode_triton(
             q,
             kv_cache,
             topk_idx,

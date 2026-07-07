@@ -61,6 +61,33 @@ logger = init_logger(__name__)
 _SPARSE_ATTN_LOGGED = False
 
 
+def _fc1_global_num_tokens() -> int | None:
+    try:
+        from vllm_ascend.ascend_forward_context import _EXTRA_CTX
+
+        if _EXTRA_CTX.flash_comm_v1_enabled and _EXTRA_CTX.num_tokens is not None:
+            return _EXTRA_CTX.num_tokens - _EXTRA_CTX.pad_size
+    except (AssertionError, AttributeError):
+        pass
+    return None
+
+
+def _fc1_maybe_all_gather_seq_tokens(x: torch.Tensor) -> torch.Tensor:
+    """AllGather sequence-sharded activations when FC1 qkv AG is bypassed in graph."""
+    from vllm_ascend.ascend_forward_context import _EXTRA_CTX
+    from vllm_ascend.utils import enable_sp
+
+    if not enable_sp() or not _EXTRA_CTX.flash_comm_v1_enabled:
+        return x
+    tp_size = get_tensor_model_parallel_world_size()
+    if tp_size <= 1:
+        return x
+    num_global = _fc1_global_num_tokens()
+    if num_global is None or x.shape[0] * tp_size != num_global or x.shape[0] >= num_global:
+        return x
+    return torch.ops.vllm.maybe_all_gather_and_maybe_unpad(x.contiguous(), True)
+
+
 class AscendMiniMaxM3IndexerBackend(AttentionBackend):
     supported_dtypes: ClassVar[list[torch.dtype]] = [torch.bfloat16, torch.float16]
     supported_kv_cache_dtypes: ClassVar[list[CacheDType]] = [
@@ -1273,6 +1300,12 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
 
         index_q, index_k = self._index_qk_norm(index_q, index_k)
         index_q, index_k = self.rotary_emb(positions, index_q, index_k)
+
+        q = _fc1_maybe_all_gather_seq_tokens(q)
+        k = _fc1_maybe_all_gather_seq_tokens(k)
+        v = _fc1_maybe_all_gather_seq_tokens(v)
+        index_q = _fc1_maybe_all_gather_seq_tokens(index_q)
+        index_k = _fc1_maybe_all_gather_seq_tokens(index_k)
 
         return q, k, v, index_q, index_k
 

@@ -32,7 +32,7 @@ from vllm.triton_utils import HAS_TRITON
 
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX
 from vllm_ascend.platform import NPUPlatform
-from vllm_ascend.utils import has_rope, is_vl_model
+from vllm_ascend.utils import enable_sp, has_rope, is_vl_model
 
 if HAS_TRITON:
     from vllm.model_executor.layers.rotary_embedding.mrope import triton_mrope
@@ -150,6 +150,22 @@ def get_cos_and_sin_slice():
     return _cos_slice, _sin_slice
 
 
+def _align_rope_positions(
+    positions: torch.Tensor | None,
+    num_tokens: int,
+) -> torch.Tensor | None:
+    """Align positions length with q/k token count for FC1 + graph paths."""
+    if positions is None or positions.shape[0] == num_tokens:
+        return positions
+
+    if enable_sp() and _EXTRA_CTX.flash_comm_v1_enabled and positions.shape[0] < num_tokens:
+        positions = torch.ops.vllm.maybe_all_gather_and_maybe_unpad(positions.contiguous(), True)
+
+    if positions.shape[0] > num_tokens:
+        positions = positions[:num_tokens]
+    return positions
+
+
 def rope_forward_oot(
     positions: torch.Tensor,
     query: torch.Tensor,
@@ -165,6 +181,7 @@ def rope_forward_oot(
         raise NotImplementedError("Batched rotary embedding is currently not supported on NPU.")
     if HAS_TRITON:
         num_tokens = query.shape[0]
+        positions = _align_rope_positions(positions, num_tokens)
         query, key = rope_forward_triton(
             query.view(num_tokens, -1, head_size),
             key.view(num_tokens, -1, head_size),
@@ -176,6 +193,7 @@ def rope_forward_oot(
     else:
         if rotary_dim < head_size:
             num_tokens = query.shape[0]
+            positions = _align_rope_positions(positions, num_tokens)
             query = query.view(num_tokens, -1, head_size)
             key = key.view(num_tokens, -1, head_size)
             q_rot = query[..., :rotary_dim]
@@ -200,6 +218,8 @@ def rope_forward_oot(
             key = torch.cat((k_rot, k_pass), dim=-1).reshape(key_shape)
         else:
             # TODO: Remove the contiguous in the future.
+            num_tokens = query.shape[0]
+            positions = _align_rope_positions(positions, num_tokens)
             query = query.contiguous().view(query.shape[0], -1)
             key = key.contiguous().view(key.shape[0], -1)
             torch_npu._npu_rotary_embedding(

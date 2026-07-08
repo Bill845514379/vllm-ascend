@@ -115,6 +115,19 @@ def _sparse_attention_layer_ids(config: PretrainedConfig) -> set[int]:
     return {i for i, f in enumerate(freq) if f != 0}
 
 
+def _fc1_scatter_hidden_states(hidden_states: torch.Tensor) -> torch.Tensor:
+    """FC1 SP entry: shard embed output per rank, except VL layer-0 qkv."""
+    from vllm.model_executor.models.utils import sequence_parallel_chunk
+    from vllm_ascend.ascend_forward_context import _EXTRA_CTX
+    from vllm_ascend.utils import enable_sp, is_vl_model
+
+    if not enable_sp() or not _EXTRA_CTX.flash_comm_v1_enabled:
+        return hidden_states
+    if is_vl_model():
+        return hidden_states
+    return sequence_parallel_chunk(hidden_states)
+
+
 def _get_text_config(vllm_config: VllmConfig) -> PretrainedConfig:
     return vllm_config.model_config.hf_text_config
 
@@ -586,6 +599,7 @@ class MiniMaxM3Model(nn.Module, EagleModelMixin):
                 hidden_states = inputs_embeds
             else:
                 hidden_states = self.embed_input_ids(input_ids)
+            hidden_states = _fc1_scatter_hidden_states(hidden_states)
             residual = None
         else:
             assert intermediate_tensors is not None

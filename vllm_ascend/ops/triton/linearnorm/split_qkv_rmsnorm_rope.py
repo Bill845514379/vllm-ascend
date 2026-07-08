@@ -274,6 +274,9 @@ def split_qkv_rmsnorm_rope_impl(
     q_bias: torch.Tensor | None = None,
     k_bias: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    from vllm_ascend.ops.rotary_embedding import _align_rope_positions
+
+    positions = _align_rope_positions(positions, input.shape[0])
     # get available vector core
     num_vectorcore = get_vectorcore_num()
     rope_dim = cos_sin_cache.shape[-1]

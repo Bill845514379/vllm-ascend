@@ -98,52 +98,6 @@ def _active_prefill_num_reqs(
     return min(1, num_prefills)
 
 
-def _align_seq_lens_block_table_for_fia(
-    seq_lens: torch.Tensor,
-    block_table: torch.Tensor | None,
-    query_start_loc_cpu: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor | None]:
-    """Pad seq_lens/block_table when FIA inserts a dummy request past max_num_seqs."""
-    num_reqs_fia = int(query_start_loc_cpu.shape[0] - 1)
-    if seq_lens.shape[0] < num_reqs_fia:
-        padding_len = num_reqs_fia - seq_lens.shape[0]
-        seq_lens = torch.cat([seq_lens, seq_lens.new_ones(padding_len)])
-    if block_table is not None and block_table.shape[0] < num_reqs_fia:
-        block_table = torch.cat(
-            [
-                block_table,
-                block_table.new_zeros(
-                    (num_reqs_fia - block_table.shape[0], block_table.shape[1]),
-                    dtype=block_table.dtype,
-                    device=block_table.device,
-                ),
-            ],
-            dim=0,
-        )
-    return seq_lens, block_table
-
-
-def _compute_context_lens_aligned(
-    seq_lens: torch.Tensor,
-    query_start_loc_cpu: torch.Tensor,
-    context_len_buffer: torch.Tensor,
-) -> torch.Tensor:
-    """Compute context_lens from aligned seq_lens and query_start_loc slices."""
-    num_reqs = seq_lens.shape[0]
-    query_lens_cpu = (
-        query_start_loc_cpu[1 : num_reqs + 1] - query_start_loc_cpu[:num_reqs]
-    )
-    context_lens_cpu = seq_lens[:num_reqs].detach().cpu() - query_lens_cpu
-    context_lens = context_len_buffer[:num_reqs]
-    context_lens.copy_(
-        context_lens_cpu.to(
-            device=context_len_buffer.device, dtype=torch.int32, non_blocking=True
-        ),
-        non_blocking=True,
-    )
-    return context_lens
-
-
 class AscendMiniMaxM3IndexerBackend(AttentionBackend):
     supported_dtypes: ClassVar[list[torch.dtype]] = [torch.bfloat16, torch.float16]
     supported_kv_cache_dtypes: ClassVar[list[CacheDType]] = [
@@ -289,15 +243,11 @@ class AscendMiniMaxM3IndexerMetadataBuilder(
         common_attn_metadata: CommonAttentionMetadata,
         fast_build: bool = False,
     ) -> AscendMiniMaxM3IndexerMetadata:
-        num_reqs = common_attn_metadata.num_reqs
         num_tokens = common_attn_metadata.num_actual_tokens
         query_start_loc = common_attn_metadata.query_start_loc
         seq_lens = common_attn_metadata.seq_lens
         block_table = common_attn_metadata.block_table_tensor
         qsl_cpu = common_attn_metadata.query_start_loc_cpu
-        seq_lens, block_table = _align_seq_lens_block_table_for_fia(
-            seq_lens, block_table, qsl_cpu
-        )
 
         num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = (
             split_decodes_and_prefills(
@@ -307,12 +257,6 @@ class AscendMiniMaxM3IndexerMetadataBuilder(
             )
         )
 
-        context_lens = _compute_context_lens_aligned(
-            seq_lens,
-            qsl_cpu,
-            self.context_len_buffer,
-        )
-
         prefill_metadata: AscendMiniMaxM3IndexerPrefillMetadata | None = None
         active_prefills = 0
         if num_prefills > 0:
@@ -320,13 +264,29 @@ class AscendMiniMaxM3IndexerMetadataBuilder(
                 num_prefills, num_prefill_tokens, qsl_cpu, num_decodes
             )
             prefill_end = num_decodes + active_prefills
+            prefill_query_lens_cpu = (
+                qsl_cpu[num_decodes + 1 : prefill_end + 1]
+                - qsl_cpu[num_decodes:prefill_end]
+            )
+            prefill_context_lens = self.context_len_buffer[num_decodes:prefill_end]
+            prefill_context_lens.copy_(
+                (
+                    seq_lens[num_decodes:prefill_end].detach().cpu()
+                    - prefill_query_lens_cpu
+                ).to(
+                    device=self.context_len_buffer.device,
+                    dtype=torch.int32,
+                    non_blocking=True,
+                ),
+                non_blocking=True,
+            )
             cu_seqlens_q = (
                 query_start_loc[num_decodes : prefill_end + 1] - num_decode_tokens
             ).to(torch.int32)
             prefill_metadata = AscendMiniMaxM3IndexerPrefillMetadata(
                 cu_seqlens_q=cu_seqlens_q,
                 seq_lens=seq_lens[num_decodes:prefill_end],
-                context_lens=context_lens[num_decodes:prefill_end],
+                context_lens=prefill_context_lens,
                 block_table=block_table[num_decodes:prefill_end],
                 max_query_len=common_attn_metadata.max_query_len,
                 max_seq_len=common_attn_metadata.max_seq_len,
@@ -606,15 +566,11 @@ class AscendMiniMaxM3SparseMetadataBuilder(
         common_attn_metadata: CommonAttentionMetadata,
         fast_build: bool = False,
     ) -> AscendMiniMaxM3SparseMetadata:
-        num_reqs = common_attn_metadata.num_reqs
         num_tokens = common_attn_metadata.num_actual_tokens
         query_start_loc = common_attn_metadata.query_start_loc
         seq_lens = common_attn_metadata.seq_lens
         block_table = common_attn_metadata.block_table_tensor
         qsl_cpu = common_attn_metadata.query_start_loc_cpu
-        seq_lens, block_table = _align_seq_lens_block_table_for_fia(
-            seq_lens, block_table, qsl_cpu
-        )
 
         num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = (
             split_decodes_and_prefills(
@@ -622,12 +578,6 @@ class AscendMiniMaxM3SparseMetadataBuilder(
                 decode_threshold=self.reorder_batch_threshold,
                 require_uniform=True,
             )
-        )
-
-        context_lens = _compute_context_lens_aligned(
-            seq_lens,
-            qsl_cpu,
-            self.context_len_buffer,
         )
 
         prefill_metadata: AscendMiniMaxM3SparsePrefillMetadata | None = None
@@ -643,6 +593,21 @@ class AscendMiniMaxM3SparseMetadataBuilder(
             )
             prefill_cu_seqlens_k[0] = 0
             torch.cumsum(prefill_kv_lens, dim=0, out=prefill_cu_seqlens_k[1:])
+            prefill_query_lens_cpu = (
+                qsl_cpu[num_decodes + 1 : prefill_end + 1]
+                - qsl_cpu[num_decodes:prefill_end]
+            )
+            prefill_context_lens = self.context_len_buffer[num_decodes:prefill_end]
+            prefill_context_lens.copy_(
+                (
+                    prefill_kv_lens.detach().cpu() - prefill_query_lens_cpu
+                ).to(
+                    device=self.context_len_buffer.device,
+                    dtype=torch.int32,
+                    non_blocking=True,
+                ),
+                non_blocking=True,
+            )
             cu_seqlens_q = (
                 query_start_loc[num_decodes : prefill_end + 1] - num_decode_tokens
             ).to(torch.int32)
@@ -650,7 +615,7 @@ class AscendMiniMaxM3SparseMetadataBuilder(
                 cu_seqlens_q=cu_seqlens_q,
                 cu_seqlens_k=prefill_cu_seqlens_k,
                 seq_lens=prefill_kv_lens,
-                context_lens=context_lens[num_decodes:prefill_end],
+                context_lens=prefill_context_lens,
                 block_table=block_table[num_decodes:prefill_end],
                 max_query_len=common_attn_metadata.max_query_len,
                 max_seq_len=common_attn_metadata.max_seq_len,

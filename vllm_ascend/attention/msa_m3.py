@@ -13,7 +13,7 @@ from vllm.config import CacheConfig, VllmConfig, get_current_vllm_config
 from vllm.config.cache import CacheDType
 from vllm.distributed import divide, get_tensor_model_parallel_world_size
 from vllm.forward_context import ForwardContext, get_forward_context
-from vllm.logger import init_logger
+from vllm.logger import logger
 from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
 from vllm.model_executor.layers.layernorm import GemmaRMSNorm
 from vllm.model_executor.layers.linear import (
@@ -54,8 +54,6 @@ from vllm_ascend.attention.shy_indexer import (
 )
 from vllm_ascend.ops.linear import AscendColumnParallelLinear
 from vllm_ascend.ops.linear_op import get_parallel_op
-
-logger = init_logger(__name__)
 
 _SPARSE_ATTN_LOGGED = False
 
@@ -345,7 +343,7 @@ class AscendMiniMaxM3IndexerImpl(nn.Module):
         index_md = attn_metadata[self.index_cache.prefix]
         assert isinstance(index_md, AscendMiniMaxM3IndexerMetadata)
         num_tokens = index_md.num_actual_tokens
-        nd = index_md.num_decode_tokens
+        num_decode_tokens = index_md.num_decode_tokens
         iq = index_query[:num_tokens].view(-1, self.num_index_heads, self.index_head_dim)
         kv = self.index_cache.kv_cache
 
@@ -355,7 +353,7 @@ class AscendMiniMaxM3IndexerImpl(nn.Module):
             d = index_md.decode
             assert d is not None
             decode_topk = minimax_m3_index_decode(
-                iq[:nd],
+                iq[:num_decode_tokens],
                 kv,
                 d.block_table,
                 d.seq_lens,
@@ -371,7 +369,7 @@ class AscendMiniMaxM3IndexerImpl(nn.Module):
             p = index_md.prefill
             assert p is not None
             score = minimax_m3_index_score(
-                iq[nd:],
+                iq[num_decode_tokens:],
                 kv,
                 p.block_table,
                 p.cu_seqlens_q,
@@ -650,7 +648,7 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
         assert isinstance(main_md, AscendMiniMaxM3SparseMetadata)
         decode_topk, prefill_topk = topk_idx
 
-        nd = main_md.num_decode_tokens
+        num_decode_tokens = main_md.num_decode_tokens
         num_tokens = main_md.num_actual_tokens
         hd = self.head_size
         q = query[:num_tokens].view(-1, self.num_heads, hd)
@@ -660,14 +658,14 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
             d = main_md.decode
             assert d is not None and decode_topk is not None
             minimax_m3_sparse_attn_decode(
-                q[:nd],
+                q[:num_decode_tokens],
                 kv_cache,
                 decode_topk,
                 d.block_table,
                 d.seq_lens,
                 self.num_kv_heads,
                 self.scale,
-                out[:nd],
+                out[:num_decode_tokens],
                 d.decode_query_len,
             )
 
@@ -675,7 +673,7 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
             p = main_md.prefill
             assert p is not None and prefill_topk is not None
             minimax_m3_sparse_attn(
-                q[nd:],
+                q[num_decode_tokens:],
                 kv_cache,
                 prefill_topk,
                 p.block_table,
@@ -685,7 +683,7 @@ class AscendMiniMaxM3SparseImpl(AttentionImplBase[AscendMiniMaxM3SparseMetadata]
                 p.max_query_len,
                 self.num_kv_heads,
                 self.scale,
-                out[nd:],
+                out[num_decode_tokens:],
                 block_size=self.block_size,
             )
         return output

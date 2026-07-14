@@ -392,7 +392,6 @@ class TestCountReasoningTokens:
         # depth=2 (after START): tokens 3,4 = 2
         # depth=1 (after first END): token 5 = 1
         # depth=0 (after second END): tokens 6,7 = 0
-        total = 2 + 2 + 1
         assert result == 5
 
     def test_initial_in_reasoning_only_reasoning(self):

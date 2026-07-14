@@ -983,7 +983,6 @@ class TestExtractToolCallsStreaming:
 
     def test_streaming_with_token_ids(self):
         parser = _make_parser(_get_weather_tools())
-        full = _tool_block(_invoke("get_weather", _element("city", "Seattle")))
         # Split into chunks and simulate
         results = _feed(
             parser,
@@ -1014,7 +1013,7 @@ class TestExtractToolCallsStreaming:
         parser._in_tool_block = True
         parser._tool_block_done = True
         parser._emitted_tool_count = 3
-        result = parser.extract_tool_calls_streaming(
+        parser.extract_tool_calls_streaming(
             previous_text="",
             current_text=_TOOL_CALL_START,
             delta_text=_TOOL_CALL_START,

@@ -380,7 +380,7 @@ jobs:
           python3 - <<'EOF'
           import os, glob
           from obs import ObsClient
-          OBS_BUCKET = 'ascend-artifcat-packages'
+          OBS_BUCKET = 'ascend-artifact-packages'
           OBS_PATH = 'pypi/packages/ascend/repos/pypi/variant/vllm-ascend'
           client = ObsClient(
               access_key_id=os.environ['OBS_ACCESS_KEY'],

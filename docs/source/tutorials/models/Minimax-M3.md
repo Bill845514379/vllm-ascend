@@ -11,12 +11,12 @@ It is recommended to place the model weight in a shared cache directory.
 ### Installation
 
 - Step 1： Download v0.21.0rc1 Docker image
-  ```
+  ```bash
   docker pull quay.io/ascend/vllm-ascend:v0.21.0rc1-a3
   ```
 
 - Step 2: Start Docker container
-  ```
+  ```bash
   # 更新 vllm-ascend 镜像，并配置对应的Image名
   export IMAGE=quay.io/ascend/vllm-ascend:v0.21.0rc1-a3
   export NAME=minimax-m3-dev
@@ -58,7 +58,7 @@ It is recommended to place the model weight in a shared cache directory.
   ```
 
 - Step 3: Update vLLM
-  ```
+  ```bash
   cd /vllm-workspace/vllm
   git checkout v0.24.0
 
@@ -68,7 +68,7 @@ It is recommended to place the model weight in a shared cache directory.
   ```
 
 - Step 4: Update vLLM Ascend
-  ```
+  ```bash
   cd /vllm-workspace/vllm-ascend
   git fetch origin pull/10682/merge:pr-10682
   git merge pr-10682
@@ -80,7 +80,7 @@ Start the online serving service with the following command:
 
 - For BF16 version
 
-  ```
+  ```bash
   export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
   export HCCL_OP_EXPANSION_MODE="AIV"
   export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
@@ -102,7 +102,7 @@ Start the online serving service with the following command:
   ```
 
 - For W8A8 version
-  ```
+  ```bash
   export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
   export HCCL_OP_EXPANSION_MODE="AIV"
   export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
@@ -136,7 +136,7 @@ The examples below use Ascend A2 servers. Update `WEIGHT_PATH`, `EAGLE3_WEIGHT_P
 
   Run the following command on node 0:
 
-  ```
+  ```bash
   local_ip="${NODE0_IP}"
   node0_ip="${NODE0_IP}"
 
@@ -179,7 +179,7 @@ The examples below use Ascend A2 servers. Update `WEIGHT_PATH`, `EAGLE3_WEIGHT_P
 
   Run the following command on node 1:
 
-  ```
+  ```bash
   local_ip="${NODE1_IP}"
   node0_ip="${NODE0_IP}"
 
@@ -225,7 +225,7 @@ The examples below use Ascend A2 servers. Update `WEIGHT_PATH`, `EAGLE3_WEIGHT_P
 
   Run the following command on node 0:
 
-  ```
+  ```bash
   local_ip="${NODE0_IP}"
   node0_ip="${NODE0_IP}"
 
@@ -269,7 +269,7 @@ The examples below use Ascend A2 servers. Update `WEIGHT_PATH`, `EAGLE3_WEIGHT_P
 
   Run the following command on node 1:
 
-  ```
+  ```bash
   local_ip="${NODE1_IP}"
   node0_ip="${NODE0_IP}"
 
@@ -378,7 +378,7 @@ vllm serve ${WEIGHT_PATH} \
 
 MiniMax-M3 uses explicit thinking delimiters:
 
-```
+```text
 <mm:think>reasoning process...</mm:think>final answer
 ```
 
@@ -467,7 +467,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 
 - Text
 
-  ```
+  ```bash
   #!/bin/bash
   # Verify MiniMax M3 vLLM service via OpenAI-compatible chat completions API.
   # Usage: bash script/verify_curl.sh
@@ -754,7 +754,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 - Q: 重装vLLM Ascend
 
   A: 可以使用如下命令重装vLLM Ascend，并直接使用当前 Python 环境里的依赖来构建
-  ```
+  ```bash
   pip install -v --no-build-isolation -e . -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com
   ```
 
@@ -764,7 +764,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 
 - Q: 遇到`TypeError: _LazyConfigMapping.__init__() missing 1 required positional argument: 'mapping'`报错 （详细报错信息如下）
   
-  ```
+  ```pytb
   Traceback (most recent call last):
   File "<string>", line 1, in <module>
   File "/usr/local/python3.12.13/lib/python3.12/multiprocessing/spawn.py", line 122, in spawn_main
@@ -777,7 +777,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   ```
   
   A: 修改权重中的`configuration_minimax_m3_vl.py`文件，将`from transformers.models.auto import CONFIG_MAPPING`注释并移动到调用点中加载
-  ```
+  ```python
   from transformers.configuration_utils import PretrainedConfig
   # from transformers.models.auto import CONFIG_MAPPING
   

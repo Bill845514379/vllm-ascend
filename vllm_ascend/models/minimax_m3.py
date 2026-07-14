@@ -38,7 +38,7 @@ from vllm.distributed import (
     get_tensor_model_parallel_world_size,
 )
 from vllm.inputs import MultiModalDataDict
-from vllm.logger import init_logger
+from vllm.logger import logger
 from vllm.model_executor.layers.attention import Attention
 from vllm.model_executor.layers.fused_moe import (
     FusedMoE,
@@ -98,8 +98,6 @@ from vllm.sequence import IntermediateTensors
 
 from vllm_ascend.attention.msa_m3 import MiniMaxM3SparseAttention
 from vllm_ascend.models.minimax_m3_vllm_vision import MiniMaxVLVisionModel
-
-logger = init_logger(__name__)
 
 
 def _sparse_attention_layer_ids(config: PretrainedConfig) -> set[int]:

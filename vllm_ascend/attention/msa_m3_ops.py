@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 
 import torch
+from vllm.logger import logger
 
 SPARSE_BLOCK_SIZE = 128
 
@@ -16,18 +17,14 @@ _LOGGED_INDEXER = False
 def log_sparse_attention_used() -> None:
     global _LOGGED_SPARSE_ATTN
     if not _LOGGED_SPARSE_ATTN:
-        from vllm.logger import init_logger
-
-        init_logger(__name__).warning("MiniMax M3 sparse attention path is active (Ascend torch fallback)")
+        logger.warning("MiniMax M3 sparse attention path is active (Ascend torch fallback)")
         _LOGGED_SPARSE_ATTN = True
 
 
 def log_indexer_used() -> None:
     global _LOGGED_INDEXER
     if not _LOGGED_INDEXER:
-        from vllm.logger import init_logger
-
-        init_logger(__name__).warning("MiniMax M3 lightning indexer path is active (Ascend torch fallback)")
+        logger.warning("MiniMax M3 lightning indexer path is active (Ascend torch fallback)")
         _LOGGED_INDEXER = True
 
 

@@ -6,7 +6,7 @@
 
 ### 核心计算
 
-```
+```text
 O = softmax(Q @ K^T / sqrt(d)) @ V
 ```
 
@@ -61,7 +61,7 @@ O = softmax(Q @ K^T / sqrt(d)) @ V
 
 ### Task 分解
 
-```
+```text
 totalTaskNum = totalQTokens × kvHeads
 blockDim = min(totalTaskNum, aicNum)
 ```
@@ -83,7 +83,7 @@ Host 侧计算并传递给 kernel 的 tiling 数据包括：
 
 ### 4.1 总体流水线
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Per Task: 1 token × groupSize heads × topK KV blocks      │
 ├─────────────────────────────────────────────────────────────┤
@@ -118,7 +118,7 @@ int64_t gmOffsetQ = qToken * strideQO + qHeadStart * embed_;
 
 ### 4.3 Matmul 维度
 
-```
+```text
 QK: M=groupSize, N=kvBlockSize(≤128), K=headDim(128)
      Q[groupSize, D] × K[D, blockSize]^T → S[groupSize, blockSize]
 
@@ -141,7 +141,7 @@ int64_t gmOffsetK = physicalBlockId * strideKVBlock + kvHeadIdx * embed_;
 
 对于 topK 个 KV block 逐一处理，使用 online softmax：
 
-```
+```text
 for each KV block:
     S = Q × K^T (bf16 matmul)
     S_scaled = S * scale (bf16)
@@ -251,7 +251,7 @@ SparseAttentionScore 在 A5 (Ascend 950PR/950DT) 上 **仅支持 `inner_precise=
 
 具体计算精度分配如下：
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────┐
 │ Stage            │ 计算精度          │ 存储精度               │
 ├────────────────────────────────────────────────────────────────┤

@@ -86,8 +86,6 @@ def generate_block_index_with_causal(
 ):
     his_seq_len = kv_seqlen - q_seqlen
     total_blocks = ceil(kv_seqlen / block_size)
-    head_dim = query_fp32.shape[-1]
-
     select_idx = torch.full((kv_heads, q_seqlen, top_k), -1, dtype=torch.int32)
     select_num_idx = torch.zeros((kv_heads, q_seqlen), dtype=torch.int32)
 
@@ -153,7 +151,6 @@ def build_fp8_tensors_and_scales(
     batch = len(actual_seq_lengths)
     q_heads = query_fp32.shape[1]
     kv_heads = key_fp32.shape[2]
-    head_dim = query_fp32.shape[2]
     max_q_seqlen = max(actual_seq_lengths)
     max_kv_blocks = block_table.shape[1]
     max_q_blocks = ceil(max_q_seqlen / block_size)
@@ -230,8 +227,6 @@ def cpu_sparse_attention_score_fp32(
     kv_heads = num_key_value_heads
     group_size = q_heads // kv_heads
     top_k = select_idx.shape[2]
-    batch = len(actual_seq_lengths)
-
     output = torch.zeros(total_q_tokens, q_heads, head_dim, dtype=torch.float32)
     q_offset = 0
     for batch_idx, q_seqlen in enumerate(actual_seq_lengths):
@@ -372,7 +367,6 @@ def cpu_sparse_attention_score_bf16(
     kv_heads = num_key_value_heads
     group_size = q_heads // kv_heads
     top_k = select_idx.shape[2]
-    batch = len(actual_seq_lengths)
     scale_bf16 = torch.tensor(scale_value, dtype=torch.bfloat16).item()
 
     output = torch.zeros(total_q_tokens, q_heads, head_dim, dtype=torch.bfloat16)
@@ -494,8 +488,6 @@ def cpu_sparse_attention_score_fp8(
     kv_heads = num_key_value_heads
     group_size = q_heads // kv_heads
     top_k = select_idx.shape[2]
-    batch = len(actual_seq_lengths)
-
     output = torch.zeros(total_q_tokens, q_heads, head_dim, dtype=torch.float32)
 
     q_offset = 0
@@ -574,10 +566,10 @@ class TestNpuSparseAttentionScoreBf16(TestCase):
     def make_case(
         self, q_seqlen=1, kv_seqlen=128, q_heads=1, kv_heads=1, head_dim=128, block_size=128, top_k=1, seed=42
     ):
-        batch = 1
         group_size = q_heads // kv_heads
         total_blocks = ceil(kv_seqlen / block_size)
         max_blocks_per_batch = total_blocks
+        batch = 1
         actual_seq_lengths = torch.tensor([q_seqlen] * batch, dtype=torch.int32)
         actual_seq_lengths_kv = torch.tensor([kv_seqlen] * batch, dtype=torch.int32)
 
@@ -825,7 +817,6 @@ class TestNpuSparseAttentionScoreBf16(TestCase):
         block_size = 128
         top_k = 16
         seed = 42
-        batch = 1
         group_size = q_heads // kv_heads
 
         # Shared KV cache: kvseqlen=133 needs ceil(133/128)=2 blocks
@@ -1665,12 +1656,10 @@ def _test_bf16_q64_kv4_seqlen132_topk16(self):
     block_size = 128
     top_k = 16
     seed = 42
-    batch = 1
     group_size = q_heads // kv_heads
     total_blocks = ceil(kv_seqlen / block_size)  # = 100
     # KV cache physical blocks >= total_blocks
     total_physical_blocks = total_blocks + 10  # extra headroom
-    max_blocks_per_batch = total_blocks
     actual_seq_lengths = torch.tensor([q_seqlen], dtype=torch.int32)
     actual_seq_lengths_kv = torch.tensor([kv_seqlen], dtype=torch.int32)
 

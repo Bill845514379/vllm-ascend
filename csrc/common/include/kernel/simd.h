@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -26,7 +26,7 @@
 /////////////////////////////////////////////////////
 // vadd
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void add_v(AscendC::LocalTensor<DType> dst,
                              AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1,
@@ -51,7 +51,7 @@ __aicore__ inline void add_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vadds
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void adds_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src,
                               DType scalarValue,
@@ -73,7 +73,7 @@ __aicore__ inline void adds_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vcadd
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void cadd_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src,
                               uint8_t repeat,
@@ -86,7 +86,7 @@ __aicore__ inline void cadd_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vbrcb
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void brcb_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src,
                               uint16_t dstBlockStride,
@@ -99,7 +99,7 @@ __aicore__ inline void brcb_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vcmax
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType, AscendC::ReduceOrder OrderType>
+template <archetype ArchTag, typename DType, AscendC::ReduceOrder OrderType>
 __aicore__ inline void cmax_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src,
                               uint8_t repeat,
@@ -119,7 +119,7 @@ __aicore__ inline void cmax_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vconv
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DTypeIn, typename DTypeOut>
+template <archetype ArchTag, typename DTypeIn, typename DTypeOut>
 __aicore__ inline void conv_v(AscendC::LocalTensor<DTypeOut> dst,
                               AscendC::LocalTensor<DTypeIn> src,
                               uint8_t repeat,
@@ -150,7 +150,7 @@ __aicore__ inline void conv_v(AscendC::LocalTensor<DTypeOut> dst,
 /////////////////////////////////////////////////////
 // vconv_f322bf16r
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DTypeIn, typename DTypeOut>
+template <archetype ArchTag, typename DTypeIn, typename DTypeOut>
 __aicore__ inline void convr_v(AscendC::LocalTensor<DTypeOut> dst,
                                AscendC::LocalTensor<DTypeIn> src,
                                uint8_t repeat,
@@ -171,7 +171,7 @@ __aicore__ inline void convr_v(AscendC::LocalTensor<DTypeOut> dst,
 /////////////////////////////////////////////////////
 // vdiv
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void div_v(AscendC::LocalTensor<DType> dst,
                              AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1,
@@ -196,7 +196,7 @@ __aicore__ inline void div_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vexp
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void exp_v(AscendC::LocalTensor<DType> dst,
                              AscendC::LocalTensor<DType> src,
                              uint8_t repeat,
@@ -216,7 +216,7 @@ __aicore__ inline void exp_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vmax
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void max_v(AscendC::LocalTensor<DType> dst,
                              AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1,
@@ -241,7 +241,7 @@ __aicore__ inline void max_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vmul
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void mul_v(AscendC::LocalTensor<DType> dst,
                              AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1,
@@ -266,7 +266,7 @@ __aicore__ inline void mul_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vmuls
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void muls_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src0,
                               DType src1,
@@ -288,7 +288,7 @@ __aicore__ inline void muls_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vsub
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void sub_v(AscendC::LocalTensor<DType> dst,
                              AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1,
@@ -313,7 +313,7 @@ __aicore__ inline void sub_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vmaxs
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void maxs_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src0,
                               DType src1,
@@ -335,7 +335,7 @@ __aicore__ inline void maxs_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vmins
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void mins_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src0,
                               DType src1,
@@ -357,7 +357,7 @@ __aicore__ inline void mins_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vsqrt
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void sqrt_v(AscendC::LocalTensor<DType> dst,
                               AscendC::LocalTensor<DType> src,
                               uint8_t repeat,
@@ -377,7 +377,7 @@ __aicore__ inline void sqrt_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vln
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void ln_v(AscendC::LocalTensor<DType> dst,
                             AscendC::LocalTensor<DType> src,
                             uint8_t repeat,
@@ -397,7 +397,7 @@ __aicore__ inline void ln_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vtranspose
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void tranpose_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src)
 {
     AscendC::Transpose(dst, src);
@@ -406,7 +406,7 @@ __aicore__ inline void tranpose_v(AscendC::LocalTensor<DType> dst, AscendC::Loca
 /////////////////////////////////////////////////////
 // vcgmax
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void cgmax_v(AscendC::LocalTensor<DType> dst,
                                AscendC::LocalTensor<DType> src,
                                const int32_t repeat,
@@ -420,7 +420,7 @@ __aicore__ inline void cgmax_v(AscendC::LocalTensor<DType> dst,
 /////////////////////////////////////////////////////
 // vcgadd
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void cgadd_v(AscendC::LocalTensor<DType> dst,
                                AscendC::LocalTensor<DType> src,
                                const int32_t repeat,

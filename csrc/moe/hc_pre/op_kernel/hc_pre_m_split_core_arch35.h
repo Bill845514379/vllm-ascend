@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -206,7 +206,7 @@ public:
                         xLocal = xQue.template AllocTensor<T>();
                         CopyIn(xGm[xGmBaseOffset + xSplitOffset + roundIdx * tilingData->mL1Size * tilingData->hcMult * tilingData->d + kGmOffset + cvLoopIdx * tilingData->kUbSize],
                                xLocal, curRowFactor, tilingData->kUbSize, tilingData->hcMult * tilingData->d - tilingData->kUbSize);
-                        xQue.template EnQue(xLocal);
+                        xQue.template enqueue(xLocal);
                         xLocal = xQue.template DeQue<T>();
                         if (kGmOffset == kGmStartOffset && cvLoopIdx == 0) {
                             VFProcessCastAndInvRmsPart1<T, false>(rmsNormLocal, xCastLocal, xLocal, coeff, curRowFactor, tilingData->kUbSize);
@@ -287,13 +287,13 @@ public:
                             xGm[xGmBaseOffset + xOutSplitOffset + roundIdx * tilingData->mL1Size * tilingData->hcMult * tilingData->d +
                                 innerRowIdx * tilingData->hcMult * tilingData->d + dLoopIdx * tilingData->dFactor],
                             xLocal, currentInnerRowFactor * tilingData->hcMult, curDFactor, tilingData->d - curDFactor);
-                        xQue.template EnQue(xLocal);
+                        xQue.template enqueue(xLocal);
                         xLocal = xQue.template DeQue<T>();
 
                         yLocal = yQue.template AllocTensor<T>();
                         VFProcessY(yLocal, mixesLocal, xLocal, currentInnerRowFactor, tilingData->hcMult, curDFactor, tilingData->hcMix);
                         xQue.template FreeTensor(xLocal);
-                        yQue.template EnQue(yLocal);
+                        yQue.template enqueue(yLocal);
                         yLocal = yQue.template DeQue<T>();
                         CopyOut(yLocal, yGm[yGmBaseOffset + ySplitOffset + roundIdx * tilingData->mL1Size * tilingData->d + innerRowIdx * tilingData->d + dLoopIdx * tilingData->dFactor],
                                 currentInnerRowFactor, curDFactor, tilingData->d - curDFactor);
@@ -306,7 +306,7 @@ public:
                         postLocal, mixesLocal[tilingData->hcMult], hcBase1Local,
                         hcScaleGm.GetValue(1), tilingData->hcEps, currentInnerRowFactor, tilingData->hcMult, tilingData->hcMix);
 
-                    postQue.EnQue(postLocal);
+                    postQue.enqueue(postLocal);
                     postLocal = postQue.DeQue<float>();
                     CopyOut(postLocal, postGm[postGmBaseOffset + postSplitOffset + roundIdx * tilingData->mL1Size * tilingData->hcMult + innerRowIdx * tilingData->hcMult], currentInnerRowFactor, tilingData->hcMult);
                     postQue.FreeTensor(postLocal);
@@ -317,7 +317,7 @@ public:
                         combFragLocal, mixesLocal[tilingData->hcMult * 2], hcBase2Local, hcScaleGm.GetValue(2), tilingData->hcEps,
                         tilingData->iterTimes - 1, currentInnerRowFactor, tilingData->hcMult, tilingData->hcMix);
 
-                    combFragQue.EnQue(combFragLocal);
+                    combFragQue.enqueue(combFragLocal);
                     combFragLocal = combFragQue.DeQue<float>();
                     CopyOut(combFragLocal, combFragGm[combFragGmBaseOffset + combFragSplitOffset + roundIdx * tilingData->mL1Size * tilingData->hcMult * tilingData->hcMult + innerRowIdx * tilingData->hcMult * tilingData->hcMult],
                             currentInnerRowFactor, tilingData->hcMult * tilingData->hcMult);

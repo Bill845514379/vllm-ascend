@@ -3,8 +3,8 @@
 #include <stdint.h>
 
 // B080 op_common/log/log.h stopped exposing the unqualified OP module id used
-// by inherited ops-transformer tiling/error headers. Include the CANN log type
-// header early so OP still comes from the active CANN version.
+// by inherited ops-transformer tiling/error headers. Include the CAN log type
+// header early so OP still comes from the active CAN version.
 #if defined(__has_include)
 #if __has_include("base/log_types.h")
 #include "base/log_types.h"

@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -26,7 +26,7 @@ if (BUILD_OPEN_PROJECT)
             c_sec
     )
 
-    find_package(alog MODULE)
+    find_package(along MODULE)
 
     find_package(unified_dlog MODULE)
 
@@ -86,7 +86,7 @@ if (BUILD_OPEN_PROJECT)
         -Wl,--whole-archive
         ops_aclnn
         -Wl,--no-whole-archive
-        # Avoid exporting CANN built-in ACLNN symbols through libcust_opapi.so.
+        # Avoid exporting CAN built-in ACLNN symbols through libcust_opapi.so.
         $<$<BOOL:${BUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG}>:$<BUILD_INTERFACE:opapi_math>>
         nnopbase
         profapi
@@ -204,7 +204,7 @@ if (BUILD_OPEN_PROJECT)
     )
     if (NOT ENABLE_BUILT_IN)
         install(TARGETS cust_opmaster
-                LIBRARY DESTINATION packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/op_tiling/lib/linux/${CMAKE_SYSTEM_PROCESSOR}
+                LIBRARY DESTINATION packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/op_tiling/lib/linux/${CMAKE_SYSTEM_PROCESSOR}
         )
     endif()
 
@@ -223,7 +223,7 @@ if (BUILD_OPEN_PROJECT)
 
     if (NOT ENABLE_BUILT_IN)
         install(FILES ${compat_optiling_file}
-                DESTINATION packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/op_tiling
+                DESTINATION packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/op_tiling
         )
     endif()
 

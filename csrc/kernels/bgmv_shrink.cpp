@@ -120,14 +120,14 @@ private:
     {
         AscendC::LocalTensor<X_T> xLocal = inQueueX_.AllocTensor<X_T>();
         DataCopy(xLocal, xGm_[inputHiddenDim_ * idx + colIdx * TILE_LENGTH], numElements);
-        inQueueX_.EnQue(xLocal);
+        inQueueX_.enqueue(xLocal);
     }
 
     __aicore__ inline void CopyInW(int32_t rowIdx, int32_t colIdx, int32_t numElements = TILE_LENGTH)
     {
         AscendC::LocalTensor<W_T> wLocal = inQueueW_.AllocTensor<W_T>();
         DataCopy(wLocal, wGm_[reqLoRAWeightOffset_ + rowIdx * inputHiddenDim_ + colIdx * TILE_LENGTH], numElements);
-        inQueueW_.EnQue(wLocal);
+        inQueueW_.enqueue(wLocal);
     }
 
     template <bool INCREMENTAL_MODE>
@@ -182,7 +182,7 @@ private:
         Muls(yOutLocal, yLocal, scale_, maxLoRARank_);
         AscendC::PipeBarrier<PIPE_V>();
 
-        outQueueY_.EnQue<Y_T>(yOutLocal);
+        outQueueY_.enqueue<Y_T>(yOutLocal);
     }
 
     __aicore__ inline void CopyOut(const int64_t idx)

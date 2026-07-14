@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -109,11 +109,11 @@ public:
                 mixesGm[mixGmBaseOffset + rowOuterIdx * tilingData->rowFactor * tilingData->hcMix + tilingData->hcMult],
                 mixes01Local[tilingData->rowFactor * tilingData->hcMultAlign], curRowFactor, tilingData->hcMult,
                 tilingData->hcMix - tilingData->hcMult);
-            mixesQue01.EnQue(mixes01Local);
+            mixesQue01.enqueue(mixes01Local);
             rsqrtLocal = rsqrtQue.AllocTensor<float>();
             CopyIn(rsqrtGm[curBlockIdx * tilingData->rowOfFormerBlock + rowOuterIdx * tilingData->rowFactor],
                    rsqrtLocal, 1, curRowFactor);
-            rsqrtQue.EnQue(rsqrtLocal);
+            rsqrtQue.enqueue(rsqrtLocal);
 
             mixes01Local = mixesQue01.DeQue<float>();
             rsqrtLocal = rsqrtQue.DeQue<float>();
@@ -126,13 +126,13 @@ public:
                 CopyIn(xGm[xGmBaseOffset + rowOuterIdx * tilingData->rowFactor * tilingData->hcMult * tilingData->d +
                            dLoopIdx * tilingData->dFactor],
                        xLocal, tilingData->rowFactor * tilingData->hcMult, curDFactor, tilingData->d - curDFactor);
-                xQue.template EnQue(xLocal);
+                xQue.template enqueue(xLocal);
                 xLocal = xQue.template DeQue<T>();
                 yLocal = yQue.template AllocTensor<T>();
                 ProcessY(yLocal, xLocal, mixes01Local, hcBrcbLocal1, xCastLocal, yCastLocal, curRowFactor,
                          tilingData->hcMult, curDFactor);
                 xQue.template FreeTensor(xLocal);
-                yQue.template EnQue(yLocal);
+                yQue.template enqueue(yLocal);
                 yLocal = yQue.template DeQue<T>();
                 CopyOut(yLocal,
                         yGm[curBlockIdx * tilingData->rowOfFormerBlock * tilingData->d +
@@ -146,7 +146,7 @@ public:
                         rsqrtLocal, rowBrcbLocal0, hcBrcbLocal1, hcScaleGm.GetValue(1), curRowFactor,
                         tilingData->hcMult);
             mixesQue01.template FreeTensor(mixes01Local);
-            postQue.EnQue(postLocal);
+            postQue.enqueue(postLocal);
             postLocal = postQue.DeQue<float>();
             CopyOut(postLocal,
                     postGm[curBlockIdx * tilingData->rowOfFormerBlock * tilingData->hcMult +
@@ -159,7 +159,7 @@ public:
             CopyInWithOuterFor(mixesGm[mixGmBaseOffset + rowOuterIdx * tilingData->rowFactor * tilingData->hcMix +
                                        tilingData->hcMult * 2],
                                mixes2Local, curRowFactor, tilingData->hcMult, tilingData->hcMult, tilingData->hcMix);
-            mixesQue2.EnQue(mixes2Local);
+            mixesQue2.enqueue(mixes2Local);
             mixes2Local = mixesQue2.DeQue<float>();
 
             combFragLocal = combFragQue.AllocTensor<float>();
@@ -193,7 +193,7 @@ public:
             mixesQue2.FreeTensor(mixes2Local);
             rsqrtQue.FreeTensor(rsqrtLocal);
 
-            combFragQue.EnQue(combFragLocal);
+            combFragQue.enqueue(combFragLocal);
             combFragLocal = combFragQue.DeQue<float>();
             CopyOut(combFragLocal,
                     combFragGm[curBlockIdx * tilingData->rowOfFormerBlock * tilingData->hcMult * tilingData->hcMult +

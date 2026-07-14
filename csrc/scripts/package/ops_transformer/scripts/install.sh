@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -51,7 +51,7 @@ OPP_COMMON_FILE="${CURR_PATH}/opp_common.sh"
 ARCH_INFO=$(grep -e "arch" "$RUN_PKG_INFO_FILE" | cut --only-delimited -d"=" -f2-)
 # 包内路径
 GRAPH_SO_PATH="${CURR_PATH}/../../../../${OPP_PLATFORM_DIR}/built-in/op_graph/lib/linux/${ARCH_INFO}/libopgraph_transformer.so"
-HOST_SO_PATH="${CURR_PATH}/../../../../${OPP_PLATFORM_DIR}/built-in/op_impl/ai_core/tbe/op_host/lib/linux/${ARCH_INFO}/libophost_transformer.so"
+HOST_SO_PATH="${CURR_PATH}/../../../../${OPP_PLATFORM_DIR}/built-in/op_impl/ai_core/the/op_host/lib/linux/${ARCH_INFO}/libophost_transformer.so"
 
 # defaults info determined by user's inputs
 ASCEND_INSTALL_INFO="ascend_install.info"
@@ -394,7 +394,7 @@ init_env() {
     pkg_version_dir="$(basename "$TARGET_INSTALL_PATH")"
     TARGET_INSTALL_PATH="$(dirname "$TARGET_INSTALL_PATH")"
   else
-    pkg_version_dir="cann"
+    pkg_version_dir="can"
   fi
   TARGET_VERSION_DIR="$TARGET_INSTALL_PATH/$pkg_version_dir"  # Splicing docker-root and install-path
   if [ "${IS_DOCKER_INSTALL}" = "y" ]; then
@@ -486,7 +486,7 @@ install_package() {
 
   local architecture=$(uname -m)
   local graph_so_dir_path="${TARGET_VERSION_DIR}/opp/built-in/op_graph/lib/linux/${ARCH_INFO}"
-  local host_so_dir_path="${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux/${ARCH_INFO}"
+  local host_so_dir_path="${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/the/op_host/lib/linux/${ARCH_INFO}"
   # check platform
   if [ "${architecture}" != "${ARCH_INFO}" ] ; then
     logandprint "[INFO]: the architecture of the run package is inconsistent with that of the current environment. "
@@ -494,8 +494,8 @@ install_package() {
     if [ -d "${TARGET_VERSION_DIR}/opp/built-in/op_graph/lib/linux" ] ; then
       chmod u+w ${TARGET_VERSION_DIR}/opp/built-in/op_graph/lib/linux
     fi
-    if [ -d "${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux" ] ; then
-      chmod u+w ${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux
+    if [ -d "${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/the/op_host/lib/linux" ] ; then
+      chmod u+w ${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/the/op_host/lib/linux
     fi
     mkdir -p ${graph_so_dir_path}
     mkdir -p ${host_so_dir_path}
@@ -505,7 +505,7 @@ install_package() {
     chmod 755 ${host_so_dir_path}/*
 
     chmod u-w ${TARGET_VERSION_DIR}/opp/built-in/op_graph/lib/linux
-    chmod u-w ${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux
+    chmod u-w ${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/the/op_host/lib/linux
     exit 0
   fi
 
@@ -563,8 +563,8 @@ uninstall_package() {
   fi
   local graph_so_path="${TARGET_VERSION_DIR}/opp/built-in/op_graph/lib/linux/${target_arch}/libopgraph_transformer.so"
   local graph_so_dir_path="${TARGET_VERSION_DIR}/opp/built-in/op_graph/lib/linux/${target_arch}"
-  local host_so_path="${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux/${target_arch}/libophost_transformer.so"
-  local host_so_dir_path="${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux/${target_arch}"
+  local host_so_path="${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/the/op_host/lib/linux/${target_arch}/libophost_transformer.so"
+  local host_so_dir_path="${TARGET_VERSION_DIR}/opp/built-in/op_impl/ai_core/the/op_host/lib/linux/${target_arch}"
   if [ -f "${graph_so_path}" ]; then
       rm -f "${graph_so_path}"
   fi

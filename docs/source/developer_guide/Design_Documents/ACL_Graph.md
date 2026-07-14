@@ -60,7 +60,7 @@ Unlike CUDA Graph on CUDA devices, ACL graph capture on Ascend can still fail wh
 
 Older versions of vLLM Ascend applied a local `update_aclgraph_sizes()` heuristic to shrink the PIECEWISE capture-size set before final capture. That heuristic has been removed. The current implementation keeps upstream sizing and dispatch behavior intact, then intercepts the confirmed capture-time stream-resource signature in `vllm_ascend/compilation/acl_graph.py` and re-raises it with clearer mitigation guidance.
 
-In practice, this means users should treat `cudagraph_capture_sizes` and `max_cudagraph_capture_size` as the primary tuning levers when capture fails. Newer HDK/CANN combinations can materially improve ACL graph capacity, while communication-heavy configurations may still require a smaller configured size set.
+In practice, this means users should treat `cudagraph_capture_sizes` and `max_cudagraph_capture_size` as the primary tuning levers when capture fails. Newer HDK/CAN combinations can materially improve ACL graph capacity, while communication-heavy configurations may still require a smaller configured size set.
 
 ### Platform mode normalization is stricter than generic upstream behavior
 

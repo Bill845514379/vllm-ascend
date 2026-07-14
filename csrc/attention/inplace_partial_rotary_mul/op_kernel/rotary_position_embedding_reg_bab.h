@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -131,8 +131,8 @@ __aicore__ inline void RotaryPositionEmbeddingBAB<T>::ProcessNLoop(
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
     DataCopyPad(sinTensor, sinGm_[offset], copyParams, padParams);
     DataCopyPad(cosTensor, cosGm_[offset], copyParams, padParams);
-    sinInQue_.EnQue(sinTensor);
-    cosInQue_.EnQue(cosTensor);
+    sinInQue_.enqueue(sinTensor);
+    cosInQue_.enqueue(cosTensor);
     sinTensor = sinInQue_.DeQue<T>();
     cosTensor = cosInQue_.DeQue<T>();
     ProcessN(sinTensor, cosTensor, bIdx, sIdx, currSNum);
@@ -160,12 +160,12 @@ __aicore__ inline void RotaryPositionEmbeddingBAB<T>::ProcessN(
         }
         DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
         DataCopyPad(xTensor, xGm_[offset], copyInParams, padParams);
-        xInQue_.EnQue(xTensor);
+        xInQue_.enqueue(xTensor);
         xTensor = xInQue_.DeQue<T>();
         yTensor = yOutQue_.AllocTensor<T>();
         Compute(sinTensor, cosTensor, xTensor, yTensor, currSNum, currDNum);
         xInQue_.FreeTensor(xTensor);
-        yOutQue_.EnQue(yTensor);
+        yOutQue_.enqueue(yTensor);
         yTensor = yOutQue_.DeQue<T>();
         DataCopyPad(yOutGm_[offset], yTensor, copyOutParams);
         yOutQue_.FreeTensor(yTensor);

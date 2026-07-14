@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -319,7 +319,7 @@ create_softlink_for_files_and_dirs() {
 
 add_init_py() {
   local opp_builtin_mod=""
-  local built_in_impl_path=${TARGET_OPP_BUILT_IN}/op_impl/ai_core/tbe/impl/ops_transformer
+  local built_in_impl_path=${TARGET_OPP_BUILT_IN}/op_impl/ai_core/the/impl/ops_transformer
   if [ -d ${built_in_impl_path} ]; then
     opp_builtin_mod=$(stat -c %a ${built_in_impl_path})
     if [ "$(id -u)" != 0 ] && [ ! -w "${built_in_impl_path}" ]; then
@@ -404,7 +404,7 @@ main() {
   if [ "${IS_SETENV}" != "y" ]; then
     logandprint "[INFO]: Using requirements: when opp module install finished or \
 before you run the opp module, execute the command \
-[ export ASCEND_OPP_PATH=${TARGET_INSTALL_PATH}/cann/opp ] to set the environment path."
+[ export ASCEND_OPP_PATH=${TARGET_INSTALL_PATH}/can/opp ] to set the environment path."
   fi
 
   logandprint "[INFO]: Opp package installed successfully! The new version takes effect immediately."

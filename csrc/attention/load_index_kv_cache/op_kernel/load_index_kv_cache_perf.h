@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -61,7 +61,7 @@ public:
                 kvAndKvScaleLocal = kvAndKvScaleQue.template AllocTensor<T>();
                 Duplicate(kvAndKvScaleLocal.template ReinterpretCast<uint8_t>(), uint8_t(0), KV_LAST_DIM);
                 Duplicate(kvAndKvScaleLocal[KV_LAST_DIM].template ReinterpretCast<float>(), float(0), 1);
-                kvAndKvScaleQue.template EnQue(kvAndKvScaleLocal);
+                kvAndKvScaleQue.template enqueue(kvAndKvScaleLocal);
                 kvAndKvScaleLocal = kvAndKvScaleQue.template DeQue<T>();
                 CopyOut(kvAndKvScaleLocal, kvGm[kvBaseOffset + rowOuterIdx * KV_LAST_DIM], 1, KV_LAST_DIM);
                 CopyOut(kvAndKvScaleLocal[KV_LAST_DIM].template ReinterpretCast<float>(), kvScaleGm[kvScaleBaseOffset + rowOuterIdx], 1, 1);
@@ -75,14 +75,14 @@ public:
             int64_t kvCacheScaleGmOffset = (slot / tilingData->bs) * tilingData->blockStride + tilingData->bs * KV_LAST_DIM + (slot % tilingData->bs) * KV_SCALE_LAST_DIM;
             CopyIn(kvCacheGm[kvCacheGmOffset].template ReinterpretCast<uint8_t>(), kvCacheLocal.template ReinterpretCast<uint8_t>(), 1, KV_LAST_DIM);
             CopyIn(kvCacheGm[kvCacheScaleGmOffset].template ReinterpretCast<uint8_t>(), kvCacheLocal[KV_LAST_DIM].template ReinterpretCast<uint8_t>(), 1, KV_SCALE_LAST_DIM);
-            kvCacheQue.template EnQue(kvCacheLocal);
+            kvCacheQue.template enqueue(kvCacheLocal);
             kvCacheLocal = kvCacheQue.template DeQue<T>();
 
             kvAndKvScaleLocal = kvAndKvScaleQue.AllocTensor<T>();
             DataCopy(kvAndKvScaleLocal, kvCacheLocal, RoundUp<T>(tilingData->d));
             kvCacheQue.template FreeTensor(kvCacheLocal);
 
-            kvAndKvScaleQue.template EnQue(kvAndKvScaleLocal);
+            kvAndKvScaleQue.template enqueue(kvAndKvScaleLocal);
             kvAndKvScaleLocal = kvAndKvScaleQue.template DeQue<T>();
             CopyOut(kvAndKvScaleLocal, kvGm[kvBaseOffset + rowOuterIdx * KV_LAST_DIM], 1, KV_LAST_DIM);
             CopyOut(kvAndKvScaleLocal[KV_LAST_DIM].template ReinterpretCast<float>(), kvScaleGm[kvScaleBaseOffset + rowOuterIdx * 1], 1, 1);

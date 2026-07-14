@@ -228,7 +228,7 @@ protected:
         DataCopyPadExtParams<uint8_t> queryCopyInPadParams{false, 0, 0, 0};
         DataCopyPad(queryCompressed, queryGm_[queryGmOffset], queryCopyInParams, queryCopyInPadParams);
         //DumpTensor(queryCompressed, 210, queryCompressed.GetSize());
-        queryCompressedInQueue_.EnQue(queryCompressed);
+        queryCompressedInQueue_.enqueue(queryCompressed);
         queryCompressed = queryCompressedInQueue_.DeQue<uint8_t>();
         // Iterate 128 elements per iteration
         uint32_t repeatedTimes = matmul::CeilDiv(param_.headGroupNum * param_.dimension, MAX_FP16_PROCESS_NUM);
@@ -268,7 +268,7 @@ protected:
         //DumpTensor(qHashTensor, 240, param_.dimension);
         LocalTensor<int4b_t> queryUnpacked = queryUnpackedOutQueue_.AllocTensor<int4b_t>();
         Cast<int4b_t, half>(queryUnpacked, qHashTensor, RoundMode::CAST_CEIL, qMask, repeatTimes, {1, 1, 2, 8});
-        queryUnpackedOutQueue_.EnQue(queryUnpacked);
+        queryUnpackedOutQueue_.enqueue(queryUnpacked);
         queryUnpacked = queryUnpackedOutQueue_.DeQue<int4b_t>();
         uint64_t unpackQGmOffset = queryGmOffset * 8 / param_.headGroupNum;
         DataCopyExtParams copyQOutParams{1, static_cast<uint32_t>(param_.dimension / 2), 0, 0, 0}; /* 2: 1 / size of int4b_t */
@@ -311,7 +311,7 @@ protected:
                     param_.tileN1 * compressedDimension;
                 DataCopyPad(keyCompressed, keyGm[keyGmOffsetConti], copyInParams, copyInPadParams);
             }
-            keyCompressedInQueue_.EnQue(keyCompressed);
+            keyCompressedInQueue_.enqueue(keyCompressed);
             keyCompressed = keyCompressedInQueue_.DeQue<uint8_t>();
             //DumpTensor(keyCompressed, 285, static_cast<uint32_t>(copySeqLen * compressedDimension));
             //YF_LOG("sequenceBlockNum = %d j = %d copySeqLen = %d selectRepeatedTimes = %d subBlockSeqOffset = %d sequenceLen = %d\n", sequenceBlockNum, j, copySeqLen, selectRepeatedTimes, subBlockSeqOffset, sequenceLen);
@@ -347,7 +347,7 @@ protected:
             keyCompressedOffset = keyOffset * (index + 1);
             // YF_LOG("keyGmOffset_ = %d tailRepeateadTimes = %d selectRepeatedTimes = %d \n", keyGmOffset_, tailRepeateadTimes, selectRepeatedTimes);
         }
-        keyUnpackedOutQueue_.EnQue(keyUnpacked);
+        keyUnpackedOutQueue_.enqueue(keyUnpacked);
         keyUnpacked = keyUnpackedOutQueue_.DeQue<int4b_t>();
         DataCopyParams copyParams{1, static_cast<uint16_t>(selectRepeatedTimes * MAX_FP16_PROCESS_NUM / 2 / BLOCK_CUBE), 0, 0};  // 2: 1/2, size of int4b_t
         DataCopy(unpackGm_[keyGmOffset * COMPRESS_RATE], keyUnpacked, copyParams);  // output to outQueue1 with DB_ON
@@ -364,7 +364,7 @@ protected:
         LocalTensor<int4b_t> keyUnpacked = keyUnpackedOutQueue_.AllocTensor<int4b_t>();
         uint64_t mask = MAX_FP16_PROCESS_NUM;
         Cast<int4b_t, half>(keyUnpacked, selectTensor, RoundMode::CAST_CEIL, mask, static_cast<uint8_t>(repeateadTimes), {1, 1, 2, 8});
-        keyUnpackedOutQueue_.EnQue(keyUnpacked);
+        keyUnpackedOutQueue_.enqueue(keyUnpacked);
         keyUnpacked = keyUnpackedOutQueue_.DeQue<int4b_t>();
         uint64_t unpackGmOffset = keyGmOffset * 8; /* 8: Original Dimension / Compressed Dimension */
         DataCopyExtParams copyOutParams{1, static_cast<uint32_t>(repeateadTimes * dimension / 2), 0, 0, 0}; /* 2: 1 / size of int4b_t */
@@ -555,8 +555,8 @@ protected:
             TopKCustom(topKOutValueTensor, topKOutIndexTensor, topKInValueTensor, topKInIndexTensor, curK, tilingData_, copyLen);
             topKInValueQueue_.FreeTensor(topKInValueTensor);
             topKInIndexQueue_.FreeTensor(topKInIndexTensor);
-            topKOutValueQueue_.EnQue(topKOutValueTensor);
-            topKOutIndexQueue_.EnQue(topKOutIndexTensor);
+            topKOutValueQueue_.enqueue(topKOutValueTensor);
+            topKOutIndexQueue_.enqueue(topKOutIndexTensor);
         }
 
         uint64_t topKOutGmOffset = static_cast<uint64_t>(realReducedBatchIdx) * param_.maxK;
@@ -603,7 +603,7 @@ protected:
             uint16_t chunkNum = static_cast<uint16_t>(copyLen);
             LocalTensor<half> reduceInputTensor = topKInIndexQueue_.AllocTensor<int32_t>().ReinterpretCast<half>();
             ReduceMaxCustom(matmulGm_[matmulGmOffset], reduceInputTensor, topKInValueTensor, chunkNum, static_cast<uint8_t>(chunkSize));
-            topKInValueQueue_.EnQue(topKInValueTensor);
+            topKInValueQueue_.enqueue(topKInValueTensor);
             topKInIndexQueue_.FreeTensor(reduceInputTensor);
         } else {
             uint32_t copyLenCeilAligned = matmul::CeilDiv(copyLen * sizeof(half), BLOCK_CUBE)
@@ -612,7 +612,7 @@ protected:
             DataCopyPadExtParams<half> copyInPadParams{true, 0, static_cast<uint8_t>(copyLenCeilAligned - copyLen),
                 static_cast<half>(MIN_HALF_VALUE)};
             DataCopyPad(topKInValueTensor, matmulGm_[matmulGmOffset], copyInParams, copyInPadParams);
-            topKInValueQueue_.EnQue(topKInValueTensor);
+            topKInValueQueue_.enqueue(topKInValueTensor);
             if (i > 0) {
                 LocalTensor<half> topKOutValueTensor = topKOutValueQueue_.DeQue<half>();
                 topKInValueTensor = topKInValueQueue_.DeQue<half>();
@@ -627,7 +627,7 @@ protected:
                         curK % MAX_FP16_PROCESS_NUM, 1, {1, 1, 8, 8});
                 }
                 PipeBarrier<PIPE_V>();
-                topKInValueQueue_.EnQue(topKInValueTensor);
+                topKInValueQueue_.enqueue(topKInValueTensor);
                 topKOutValueQueue_.FreeTensor(topKOutValueTensor);
             }
         }
@@ -638,7 +638,7 @@ protected:
     {
         LocalTensor<int32_t> topKInIndexTensor = topKInIndexQueue_.AllocTensor<int32_t>();
         ArithProgression(topKInIndexTensor, static_cast<int32_t>(startIndex), 1, static_cast<int32_t>(copyLen));
-        topKInIndexQueue_.EnQue(topKInIndexTensor);
+        topKInIndexQueue_.enqueue(topKInIndexTensor);
         if (i > 0) {
             LocalTensor<int32_t> topKOutIndexTensor = topKOutIndexQueue_.DeQue<int32_t>();
             topKInIndexTensor = topKInIndexQueue_.DeQue<int32_t>();
@@ -653,7 +653,7 @@ protected:
                     curK % MAX_INT32_PROCESS_NUM, 1, {1, 1, 8, 8});
             }
             PipeBarrier<PIPE_V>();
-            topKInIndexQueue_.EnQue(topKInIndexTensor);
+            topKInIndexQueue_.enqueue(topKInIndexTensor);
             topKOutIndexQueue_.FreeTensor(topKOutIndexTensor);
         }
     }

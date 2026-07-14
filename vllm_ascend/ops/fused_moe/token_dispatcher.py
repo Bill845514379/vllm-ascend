@@ -137,7 +137,7 @@ class TokenDispatcherWithMC2(MoETokenDispatcher[MoEMC2CombineMetadata]):
 
         if not self.enable_dispatch_v2 and self.need_comm_alg:
             raise RuntimeError(
-                "PTA and CANN version is too old to support mc2 hierarchy comm, please upgrade your version."
+                "PTA and CAN version is too old to support mc2 hierarchy comm, please upgrade your version."
             )
 
     def refresh_hccl_group(self) -> None:

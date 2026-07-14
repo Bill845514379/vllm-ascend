@@ -467,7 +467,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
         self.patcher_npu_moe_init_routing_custom.stop()
         self.patcher_npu_moe_token_unpermute.stop()
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_without_expert_map(self):
         hidden_states = torch.randn(3, 128)
         topk_weights = torch.tensor([[0.7, 0.3], [0.6, 0.4], [0.5, 0.5]])
@@ -487,7 +487,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
         self.assertEqual(results.group_list_type, 1)
         self.assertIsInstance(results.combine_metadata, MoEAllGatherCombineMetadata)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_with_expert_map(self):
         self.dispatcher.expert_map = torch.tensor([0, 1, 2, 3])
         hidden_states = torch.randn(3, 128)
@@ -508,7 +508,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
         self.assertEqual(results.group_list_type, 1)
         self.assertIsInstance(results.combine_metadata, MoEAllGatherCombineMetadata)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_without_quant(self):
         kwargs = {
             "apply_router_weight_on_input": False,
@@ -532,7 +532,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
 
         self.assertEqual(results.group_list_type, 1)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_with_quant(self):
         kwargs = {
             "apply_router_weight_on_input": False,
@@ -560,7 +560,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
         self.assertIsNotNone(results.dynamic_scale)
         self.assertEqual(results.group_list_type, 1)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_combine_with_expert_map(self):
         hidden_states = torch.randn(6, 128)
         combine_metadata = MoEAllGatherCombineMetadata(
@@ -571,7 +571,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
         final_hidden_states = self.dispatcher.token_combine(hidden_states, combine_metadata)
         self.assertEqual(final_hidden_states.shape, (6, 128))
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_combine_without_expert_map(self):
         hidden_states = torch.randn(6, 128)
         combine_metadata = MoEAllGatherCombineMetadata(
@@ -583,7 +583,7 @@ class TestTokenDispatcherWithAllGather(TestBase):
         self.mock_npu_moe_token_unpermute.assert_called_once()
         self.assertEqual(final_hidden_states.shape, (6, 128))
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_with_router_weight(self):
         hidden_states = torch.randn(3, 128)
         topk_weights = torch.tensor([[0.7], [0.6], [0.5]])  # topk=1
@@ -680,7 +680,7 @@ class TestTokenDispatcherWithAll2AllV(TestBase):
 
         self.dispatcher = TokenDispatcherWithAll2AllV(top_k=2, num_experts=4, num_local_experts=2, with_quant=False)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch(self):
         hidden_states = torch.randn(8, 16)
         topk_weights = torch.rand(8, 4)
@@ -703,7 +703,7 @@ class TestTokenDispatcherWithAll2AllV(TestBase):
         self.assertEqual(result.group_list_type, 1)
         self.assertIsInstance(result.combine_metadata, MoEAllToAllCombineMetadata)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_combine(self):
         hidden_states = torch.randn(16, 16)
         combine_metadata = MoEAllToAllCombineMetadata(
@@ -722,7 +722,7 @@ class TestTokenDispatcherWithAll2AllV(TestBase):
         self.assertIsNotNone(output)
         self.assertEqual(output.shape, (8, 16))
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_with_quant(self):
         self.dispatcher = TokenDispatcherWithAll2AllV(top_k=2, num_experts=4, num_local_experts=2)
 
@@ -749,7 +749,7 @@ class TestTokenDispatcherWithAll2AllV(TestBase):
         self.assertEqual(result.group_list_type, 1)
         self.assertIsInstance(result.combine_metadata, MoEAllToAllCombineMetadata)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_token_dispatch_with_quant_no_active_tokens(self):
         self.dispatcher = TokenDispatcherWithAll2AllV(top_k=2, num_experts=4, num_local_experts=2)
 

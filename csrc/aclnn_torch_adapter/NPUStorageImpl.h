@@ -33,7 +33,7 @@ namespace vllm_ascend
         use_byte_size_t base_dtype_ = {};
         aclFormat origin_format_ = ACL_FORMAT_UNDEFINED;
         aclFormat npu_format_ = ACL_FORMAT_ND;
-        // used to make CANN GE tensor from storagImpl
+        // used to make CAN GE tensor from storagImpl
         caffe2::TypeMeta data_type_ = caffe2::TypeMeta::Make<uint8_t>();
     };
 

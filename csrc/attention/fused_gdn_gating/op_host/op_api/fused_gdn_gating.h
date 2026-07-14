@@ -17,7 +17,7 @@ struct FusedGdnGatingOutput {
     const aclTensor *beta_output;
 };
 
-FusedGdnGatingOutput FusedGdnGating(const aclTensor *aLog, const aclTensor *a,
+FusedGdnGatingOutput FusedGdnGating(const aclTensor *along, const aclTensor *a,
                                     const aclTensor *b, const aclTensor *dtBias,
                                     float beta, float threshold,
                                     aclOpExecutor *executor);

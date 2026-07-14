@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -108,13 +108,13 @@ __aicore__ inline void RotaryPositionEmbeddingABMixed<TX>::Process()
             cosGm_[bsLoopIdx * tilingData_->ubFactorBS * tilingData_->sliceLength],
             cosParams,
             padParamsFloat_);
-        cosInQueue_.EnQue(cosBuffer);
+        cosInQueue_.enqueue(cosBuffer);
         cosBuffer = cosInQueue_.DeQue<float>();
         DataCopyPad(sinBuffer,
             sinGm_[bsLoopIdx * tilingData_->ubFactorBS * tilingData_->sliceLength],
             cosParams,
             padParamsFloat_);
-        sinInQueue_.EnQue(sinBuffer);
+        sinInQueue_.enqueue(sinBuffer);
         sinBuffer = sinInQueue_.DeQue<float>();
 
         for (int64_t nLoopIdx = 0; nLoopIdx < nLoopCnt; nLoopIdx++) {
@@ -156,12 +156,12 @@ __aicore__ inline void RotaryPositionEmbeddingABMixed<TX>::ProcessLoop(int64_t x
 
     DataCopyPad(inBuffer, xGm_[xGmOffset + ubIdx * tilingData_->ubFactorN * tilingData_->D], inParams, padParams_);
 
-    xInQueue_.EnQue(inBuffer);
+    xInQueue_.enqueue(inBuffer);
     inBuffer = xInQueue_.DeQue<TX>();
 
     InterleaveModeVFMixed<TX>(inBuffer, cosBuffer, sinBuffer, outBuffer, tilingData_->sliceLength, bsCount, nCount);
 
-    yOutQueue_.EnQue(outBuffer);
+    yOutQueue_.enqueue(outBuffer);
     outBuffer = yOutQueue_.DeQue<TX>();
     xInQueue_.FreeTensor(inBuffer);
 

@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -78,8 +78,8 @@ __aicore__ inline void AddExample<T>::CopyIn(int32_t progress)
     AscendC::LocalTensor<T> yLocal = inputQueueY.AllocTensor<T>();
     AscendC::DataCopy(xLocal, inputGMX[progress * tileLength_], tileLength_);
     AscendC::DataCopy(yLocal, inputGMY[progress * tileLength_], tileLength_);
-    inputQueueX.EnQue(xLocal);
-    inputQueueY.EnQue(yLocal);
+    inputQueueX.enqueue(xLocal);
+    inputQueueY.enqueue(yLocal);
 }
 
 template <typename T>
@@ -97,7 +97,7 @@ __aicore__ inline void AddExample<T>::Compute(int32_t progress)
     AscendC::LocalTensor<T> yLocal = inputQueueY.DeQue<T>();
     AscendC::LocalTensor<T> zLocal = outputQueueZ.AllocTensor<T>();
     AscendC::Add(zLocal, xLocal, yLocal, tileLength_);
-    outputQueueZ.EnQue<T>(zLocal);
+    outputQueueZ.enqueue<T>(zLocal);
     inputQueueX.FreeTensor(xLocal);
     inputQueueY.FreeTensor(yLocal);
 }

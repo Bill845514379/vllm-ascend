@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -162,7 +162,7 @@ __aicore__ inline void LightningIndexerServiceVector<LIT>::InitBuffers(TPipe *pi
     // ws清零 [needFd, s2AcSeq, s2Start, s2End, isS2End, bn2idx, s1Idx, ......]
     LocalTensor<float> tmpBuff = outQueue_.AllocTensor<float>();
     Duplicate(tmpBuff.template ReinterpretCast<int32_t>(), -1, 2 * (s1BaseSize_ / 2) * paramNum_ * 2);
-    outQueue_.EnQue<float>(tmpBuff);
+    outQueue_.enqueue<float>(tmpBuff);
     tmpBuff = outQueue_.DeQue<float>();
     int64_t wsInfoOffset = (blockId_ / 2) * s1BaseSize_ * 2 * paramNum_ +      // 2个AIV共同地址偏移
                            (blockId_ % 2) * (s1BaseSize_ / 2) * 2 * paramNum_; // 每个AIV的地址偏移，S1方向
@@ -238,7 +238,7 @@ __aicore__ inline void LightningIndexerServiceVector<LIT>::CleanInvalidOutput(in
     LocalTensor<float> valueULocal = outQueue_.AllocTensor<float>();
     LocalTensor<int32_t> idxULocal1 = valueULocal.template ReinterpretCast<int32_t>();
     Duplicate(idxULocal1, constInfo_.INVALID_IDX, constInfo_.sparseCount);
-    outQueue_.EnQue<float>(valueULocal);
+    outQueue_.enqueue<float>(valueULocal);
     valueULocal = outQueue_.DeQue<float>();
     LIServiceVec::CopyOut(indiceOutGm[invalidS1offset], idxULocal1, constInfo_.sparseCount);
     outQueue_.FreeTensor(valueULocal);
@@ -252,7 +252,7 @@ __aicore__ inline void LightningIndexerServiceVector<LIT>::CleanInvalidOutput(in
         }
         LocalTensor<uint16_t> valueULocal = outQueue_.AllocTensor<uint16_t>();
         Duplicate(valueULocal, negInf, constInfo_.sparseCount);
-        outQueue_.EnQue<uint16_t>(valueULocal);
+        outQueue_.enqueue<uint16_t>(valueULocal);
         valueULocal = outQueue_.DeQue<uint16_t>();
         GlobalTensor<uint16_t> valueOutGmTmp;
         valueOutGmTmp.SetGlobalBuffer((__gm__ uint16_t *)valueOutGm.GetPhyAddr());
@@ -436,7 +436,7 @@ __aicore__ inline void LightningIndexerServiceVector<LIT>::ProcessVec(const LICo
                     }
 
                     LocalTensor<int32_t> idxULocal1 = outValueUb[offset].template ReinterpretCast<int32_t>();
-                    outQueue_.EnQue<float>(outValueUb);
+                    outQueue_.enqueue<float>(outValueUb);
                     outValueUb = outQueue_.DeQue<float>();
 
                     LIServiceVec::CopyOut(indiceOutGm[info.indiceOutOffset + cuS1Idx *

@@ -164,7 +164,7 @@ ge::graphStatus FusedGdnGatingTilingFunc(gert::TilingContext *context)
 
 ge::graphStatus TilingPrepareForFusedGdnGating(gert::TilingParseContext *context)
 {
-    // Required by CANN tiling framework for "_pattern" registration.
+    // Required by CAN tiling framework for "_pattern" registration.
     (void)context;
     return ge::GRAPH_SUCCESS;
 }

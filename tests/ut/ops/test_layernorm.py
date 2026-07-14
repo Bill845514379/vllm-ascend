@@ -40,7 +40,7 @@ def default_vllm_config():
         yield mock_config
 
 
-@pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+@pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
 @pytest.mark.parametrize("residual", [None, torch.randn(4, 8, dtype=torch.float32)])
 @patch("torch_npu.npu_rms_norm", side_effect=mock_rms_norm)
 @patch("torch_npu.npu_add_rms_norm", side_effect=mock_add_rms_norm)

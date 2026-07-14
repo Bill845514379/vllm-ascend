@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -367,7 +367,7 @@ public:
             weightCacheGroupId_ = groupId;
         }
 
-        inScaleQueue_.EnQue(inScaleLocal);
+        inScaleQueue_.enqueue(inScaleLocal);
         inScaleLocal = inScaleQueue_.DeQue<float>();
 
         int32_t blockDimxTailFactor = calcCount - blockDimxFactor * (realCoreDim - 1);
@@ -416,7 +416,7 @@ public:
             dataCopyXParams.srcStride = 0;
             dataCopyXParams.dstStride = 0;
             DataCopyPad(xActLocal, workspaceGm_[xDimxOffset * tilingData_->N], dataCopyXParams, padParams);
-            xActQueue_.EnQue(xActLocal);
+            xActQueue_.enqueue(xActLocal);
             xActLocal = xActQueue_.DeQue<int32_t>();
 
             LocalTensor<int32_t> xLocal = xActLocal;
@@ -531,7 +531,7 @@ public:
             PipeBarrier<PIPE_V>();
 
             tmpBuf1_.FreeTensor(tmpUbF32);
-            outQueue_.EnQue<float>(outLocal);
+            outQueue_.enqueue<float>(outLocal);
             outLocal = outQueue_.DeQue<float>();
             scaleOut = outLocal[alignScaleOutOffset];
             yOut = outLocal.template ReinterpretCast<int8_t>();

@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -146,12 +146,12 @@ public:
                         int64_t curGlobalxOffset = (mVectorOffset + i * tilingData->stage1MFactor) *
                         tilingData->k + kGmBaseOffset;
                         CopyIn(xGm[curGlobalxOffset], xLocal, curUbMFactor, realKGmSize, tilingData->k - realKGmSize);
-                        xQue.template EnQue(xLocal);
+                        xQue.template enqueue(xLocal);
                         xLocal = xQue.template DeQue<T>();
                         xCastLocal = mmInQue.AllocTensor<float>();
                         CastTwoDim(xCastLocal, xLocal, curUbMFactor, realKGmSize);
                         xQue.template FreeTensor(xLocal);
-                        mmInQue.template EnQue(xCastLocal);
+                        mmInQue.template enqueue(xCastLocal);
                         xCastLocal = mmInQue.template DeQue<float>();
                         int64_t cutMmInOffset = cvLoopIdx_ % DOUBLE_BUFFER * xCastFp32BufSize_ +
                         (i * tilingData->stage1MFactor + mVectorOffset - mGmOffset) *
@@ -352,7 +352,7 @@ public:
                        squareSumOutLocal, stage1UsedCoreNum, curRowFactor * SQUARE_SUM_SIZE,
                        CeilAlign(tilingData->bs, SQUARE_SUM_SIZE) * SQUARE_SUM_SIZE -
                        curRowFactor * SQUARE_SUM_SIZE);
-                squareSumQue.EnQue(squareSumOutLocal);
+                squareSumQue.enqueue(squareSumOutLocal);
                 squareSumOutLocal = squareSumQue.DeQue<float>();
                 ReduceSumARAPerf(squareReduceLocal, squareSumOutLocal, 1, stage1UsedCoreNum,
                 curRowFactor * SQUARE_SUM_SIZE);
@@ -386,7 +386,7 @@ int64_t curBsIdxForAll = (stage2BlockIdx * tilingData->rowLoopOfFormerBlock +
                 tilingData->bs,
                 CeilAlign(tilingData->hcMix, WORKSPACE_ALIGN_SIZE / sizeof(float)));
 
-                mixesQue01.EnQue(mixes01Local);
+                mixesQue01.enqueue(mixes01Local);
                 mixes01Local = mixesQue01.DeQue<float>();
                 ReduceSumARAPerf(mixes01ReduceLocal, mixes01Local, NUM_TWO, stage1UsedCoreNum,
                 curRowFactor * tilingData->hcMultAlign);
@@ -401,13 +401,13 @@ int64_t curBsIdxForAll = (stage2BlockIdx * tilingData->rowLoopOfFormerBlock +
                     dLoopIdx * tilingData->dFactor], xLocal,
                     tilingData->stage2RowFactor * tilingData->hcMult, curDFactor,
                     tilingData->d - curDFactor);
-                    xQue.template EnQue(xLocal);
+                    xQue.template enqueue(xLocal);
                     xLocal = xQue.template DeQue<T>();
                     yLocal = yQue.template AllocTensor<T>();
                     ProcessY(yLocal, xLocal, mixes01ReduceLocal, hcBrcbLocal1, xCastLocal, yCastLocal, curRowFactor,
                                 tilingData->hcMult, curDFactor);
                     xQue.template FreeTensor(xLocal);
-                    yQue.template EnQue(yLocal);
+                    yQue.template enqueue(yLocal);
                     yLocal = yQue.template DeQue<T>();
                     CopyOut(yLocal,
                         yGm[stage2BlockIdx * tilingData->rowOfFormerBlock * tilingData->d +
@@ -423,7 +423,7 @@ int64_t curBsIdxForAll = (stage2BlockIdx * tilingData->rowLoopOfFormerBlock +
                 hcBase1Local, rsqrtLocal, rowBrcbLocal0, hcBrcbLocal1, hcScaleGm.GetValue(1),
                 curRowFactor, tilingData->hcMult);
                 mixesQue01.template FreeTensor(mixes01Local);
-                postQue.EnQue(postLocal);
+                postQue.enqueue(postLocal);
                 postLocal = postQue.DeQue<float>();
                 CopyOut(postLocal,
                         postGm[stage2BlockIdx * tilingData->rowOfFormerBlock * tilingData->hcMult +
@@ -444,7 +444,7 @@ int64_t curBsIdxForAll = (stage2BlockIdx * tilingData->rowLoopOfFormerBlock +
                         tilingData->hcMultAlign], tilingData->hcMult, tilingData->hcMult);
                     }
                 }
-                mixesQue2.EnQue(mixes2Local);
+                mixesQue2.enqueue(mixes2Local);
                 mixes2Local = mixesQue2.DeQue<float>();
                 ReduceSumARAPerf(mixes02ReduceLocal, mixes2Local, 1, stage1UsedCoreNum,
                 curRowFactor * tilingData->hcMult * tilingData->hcMultAlign);
@@ -485,7 +485,7 @@ int64_t curBsIdxForAll = (stage2BlockIdx * tilingData->rowLoopOfFormerBlock +
                 mixesQue2.FreeTensor(mixes2Local);
                 squareSumQue.template FreeTensor(squareSumOutLocal);
 
-                combFragQue.EnQue(combFragLocal);
+                combFragQue.enqueue(combFragLocal);
                 combFragLocal = combFragQue.DeQue<float>();
                 CopyOut(combFragLocal,
                         combFragGm[stage2BlockIdx * tilingData->rowOfFormerBlock *

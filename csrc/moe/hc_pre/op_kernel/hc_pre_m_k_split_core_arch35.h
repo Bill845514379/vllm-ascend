@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -163,7 +163,7 @@ public:
                             xLocal = xQue.template AllocTensor<T>();
                             CopyIn(xGm[xGmBaseOffset + xSplitOffset + roundIdx * tilingData->mL1Size * tilingData->hcMult * tilingData->d + kGmOffset + cvLoopIdx * tilingData->kUbSize],
                                 xLocal, curRowFactor, kRealSize, tilingData->hcMult * tilingData->d - kRealSize);
-                            xQue.template EnQue(xLocal);
+                            xQue.template enqueue(xLocal);
                             xLocal = xQue.template DeQue<T>();
                             if (kGmOffset == kGmStartOffset && cvLoopIdx == 0) {
                                 VFProcessCastAndInvRmsPart1<T, false>(rmsNormLocal, xCastLocal, xLocal, coeff, curRowFactor, kRealSize);
@@ -201,7 +201,7 @@ public:
                 }
                 if ASCEND_IS_AIV {
                     int64_t kBaseOffset = (GetBlockIdx() / 2) % tilingData->kBlockFactor * tilingData->bs;
-                    rmsQue.template EnQue(rmsNormLocal);
+                    rmsQue.template enqueue(rmsNormLocal);
                     rmsNormLocal = rmsQue.template DeQue<float>();
                     CopyOut(rmsNormLocal, rmsGm[kBaseOffset + rmsGmBaseOffset + rmsSplitOffset + roundIdx * tilingData->mL1Size], 1, curRowFactor);
                     rmsQue.template FreeTensor(rmsNormLocal);
@@ -331,7 +331,7 @@ public:
                     rmsGm[rmsGmBaseOffset + rowOuterIdx * tilingData->stage2RowFactor],
                     rmsAndmmLocal[mmLocalSize], tilingData->kBlockFactor, curRowFactor, tilingData->bs - curRowFactor);
 
-                rmsAndmmQue.EnQue(rmsAndmmLocal);
+                rmsAndmmQue.enqueue(rmsAndmmLocal);
                 rmsAndmmLocal = rmsAndmmQue.DeQue<float>();
 
                 VFProcessInvRmsPart3WithGroupReduce(mixesLocal, rmsAndmmLocal, rmsAndmmLocal[mmLocalSize], tilingData->normEps, tilingData->kBlockFactor, curRowFactor, tilingData->hcMix);
@@ -347,13 +347,13 @@ public:
                         xGm[xGmBaseOffset + rowOuterIdx * tilingData->stage2RowFactor * tilingData->hcMult * tilingData->d +
                             dLoopIdx * tilingData->dFactor],
                         xLocal, tilingData->stage2RowFactor * tilingData->hcMult, curDFactor, tilingData->d - curDFactor);
-                    xQue.template EnQue(xLocal);
+                    xQue.template enqueue(xLocal);
                     xLocal = xQue.template DeQue<T>();
 
                     yLocal = yQue.template AllocTensor<T>();
                     VFProcessY(yLocal, mixesLocal, xLocal, curRowFactor, tilingData->hcMult, curDFactor, tilingData->hcMix);
                     xQue.template FreeTensor(xLocal);
-                    yQue.template EnQue(yLocal);
+                    yQue.template enqueue(yLocal);
                     yLocal = yQue.template DeQue<T>();
                     CopyOut(yLocal, yGm[curBlockIdx * tilingData->rowOfFormerBlock * tilingData->d + rowOuterIdx * tilingData->stage2RowFactor * tilingData->d + dLoopIdx * tilingData->dFactor], curRowFactor, curDFactor, tilingData->d - curDFactor);
                     yQue.template FreeTensor(yLocal);
@@ -365,7 +365,7 @@ public:
                     postLocal, mixesLocal[tilingData->hcMult], hcBase1Local,
                     hcScaleGm.GetValue(1), tilingData->hcEps, curRowFactor, tilingData->hcMult, tilingData->hcMix);
 
-                postQue.EnQue(postLocal);
+                postQue.enqueue(postLocal);
                 postLocal = postQue.DeQue<float>();
                 CopyOut(postLocal, postGm[curBlockIdx * tilingData->rowOfFormerBlock * tilingData->hcMult + rowOuterIdx * tilingData->stage2RowFactor * tilingData->hcMult], curRowFactor, tilingData->hcMult);
                 postQue.FreeTensor(postLocal);
@@ -377,7 +377,7 @@ public:
                     tilingData->iterTimes - 1, curRowFactor, tilingData->hcMult, tilingData->hcMix);
                 rmsAndmmQue.FreeTensor(rmsAndmmLocal);
 
-                combFragQue.EnQue(combFragLocal);
+                combFragQue.enqueue(combFragLocal);
                 combFragLocal = combFragQue.DeQue<float>();
                 int64_t combLen = tilingData->hcMult * tilingData->hcMult;
                 int64_t combOutOffset = (curBlockIdx * tilingData->rowOfFormerBlock +

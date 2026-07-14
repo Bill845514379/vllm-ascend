@@ -18,28 +18,28 @@
         <file value="libopgraph_transformer.so" install_mod="550"/>
     </file_info>
     <file_info copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe"
-        install_path="opp/built-in/op_impl/ai_core/tbe" install_type="all">
+        dst_path="built-in/op_impl/ai_core/the"
+        install_path="opp/built-in/op_impl/ai_core/the" install_type="all">
         <file value="config" install_mod="550"/>
     </file_info>
     <file_info copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe"
-        install_path="opp/built-in/op_impl/ai_core/tbe" install_type="all">
+        dst_path="built-in/op_impl/ai_core/the"
+        install_path="opp/built-in/op_impl/ai_core/the" install_type="all">
         <file value="impl" install_mod="550"/>
     </file_info>
     <file_info copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe"
-        install_path="opp/built-in/op_impl/ai_core/tbe" install_type="all">
+        dst_path="built-in/op_impl/ai_core/the"
+        install_path="opp/built-in/op_impl/ai_core/the" install_type="all">
         <file value="kernel" optional="true" install_mod="550"/>
     </file_info>
     <file_info copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe"
-        install_path="opp/built-in/op_impl/ai_core/tbe" install_type="all">
+        dst_path="built-in/op_impl/ai_core/the"
+        install_path="opp/built-in/op_impl/ai_core/the" install_type="all">
         <file value="op_tiling_device" optional="true" install_mod="550"/>
     </file_info>
     <file_info value="ophost_transformer_lib" copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe/op_host/lib/linux/$(ARCH)/"
-        install_path="opp/built-in/op_impl/ai_core/tbe/op_host/lib/linux/$(ARCH)/">
+        dst_path="built-in/op_impl/ai_core/the/op_host/lib/linux/$(ARCH)/"
+        install_path="opp/built-in/op_impl/ai_core/the/op_host/lib/linux/$(ARCH)/">
         <file value="libophost_transformer.so" install_mod="550"/>
     </file_info>
     <file_info value="op_transformer_onnx_plugin_lib" copy_type="delivery" src_path=""

@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -270,8 +270,8 @@ __aicore__ inline void RotaryPositionEmbeddingABAAndBA<T, IsBBoardcast>::CopyInC
     DataCopyPad(cosUb, this->cosGm_[bStart * tilingData_->S * tilingData_->sliceLength + sStart * tilingData_->sliceLength], copyExtParams, copyPadExtparams);
     DataCopyPad(sinUb, this->sinGm_[bStart * tilingData_->S * tilingData_->sliceLength + sStart * tilingData_->sliceLength], copyExtParams, copyPadExtparams);
     ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
-    this->cosInQueue_.template EnQue(cosUb);
-    this->sinInQueue_.template EnQue(sinUb);
+    this->cosInQueue_.template enqueue(cosUb);
+    this->sinInQueue_.template enqueue(sinUb);
 }
 
 template <typename T, bool IsBBoardcast>
@@ -303,7 +303,7 @@ __aicore__ inline void RotaryPositionEmbeddingABAAndBA<T, IsBBoardcast>::CopyInQ
         target, source[bStart * nTotalSize * tilingData_->S * D_ + nStart * tilingData_->S * D_ + sStart * D_ + tilingData_->sliceStart],
         copyExtParams, copyPadExtparams);
     ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
-    this->qInQueue_.template EnQue(target);
+    this->qInQueue_.template enqueue(target);
 }
 
 template <typename T, bool IsBBoardcast>
@@ -357,7 +357,7 @@ __aicore__ inline void RotaryPositionEmbeddingABAAndBA<T, IsBBoardcast>::Compute
             (__local_mem__ T*)outUb.GetPhyAddr(), sLength, bLength, nLength, tilingData_->sliceLength, dAlign_, ubFactorS_, ubFactorN_);
     }
     this->qInQueue_.FreeTensor(inUb);
-    this->qOutQueue_.template EnQue(outUb);
+    this->qOutQueue_.template enqueue(outUb);
 }
 } // namespace InplacePartialRotaryMul
 

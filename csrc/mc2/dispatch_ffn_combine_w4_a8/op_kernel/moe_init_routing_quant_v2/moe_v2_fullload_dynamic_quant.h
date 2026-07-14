@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -90,7 +90,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::CopyIn() {
   DataCopyPadExtParams<int32_t> dataCopyPadParams{false, 0, 0, 0};
   DataCopyPad(inLocal[0], expertIdxGm_, dataCopyParams, dataCopyPadParams);
   ArithProgression<int32_t>(inLocal[this->sortNum_], 0, 1, this->totalLength);
-  sortDataCopyInQueue.EnQue(inLocal);
+  sortDataCopyInQueue.enqueue(inLocal);
 }
 
 template <typename T>
@@ -134,7 +134,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::SortCompute() {
   expandedExpertIdxLocalInt32 = expandedExpertIdxLocal.ReinterpretCast<int32_t>();
   Cast(expandedExpertIdxLocalInt32, expandedExpertIdxLocal, RoundMode::CAST_ROUND, this->totalLength);
   pipe_barrier(PIPE_V);
-  expandedExpertIdxCopyOutQueue_.EnQue<int32_t>(expandedExpertIdxLocalInt32);
+  expandedExpertIdxCopyOutQueue_.enqueue<int32_t>(expandedExpertIdxLocalInt32);
 
   LocalTensor<uint32_t> expandedRowIdx = expandedRowIdxCopyOutQueue_.AllocTensor<uint32_t>();
   LocalTensor<uint32_t> expandedRowIdxU32 = expandedRowIdx.ReinterpretCast<uint32_t>();
@@ -157,7 +157,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::SortCompute() {
   pipe_barrier(PIPE_V);
   Extract(tempTensor, expandedRowIdxU32, sortedLocal, this->sortNum_ / ONE_REPEAT_SORT_NUM);
   pipe_barrier(PIPE_V);
-  expandedRowIdxCopyOutQueue_.EnQue<uint32_t>(expandedRowIdx);
+  expandedRowIdxCopyOutQueue_.enqueue<uint32_t>(expandedRowIdx);
   sortDataCopyInQueue.FreeTensor(inLocal);
 }
 
@@ -168,7 +168,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::CopyOutIdx() {
   intriParams.blockCount = 1;
   intriParams.blockLen = this->totalLength * sizeof(int32_t);
   DataCopyPad(expandedRowIdxGm_, expandedRowIdx, intriParams);
-  expandedRowIdxCopyOutQueue_.EnQue(expandedRowIdx);
+  expandedRowIdxCopyOutQueue_.enqueue(expandedRowIdx);
 }
 
 template <typename T>
@@ -256,7 +256,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::Compute(LocalTensor<float>&
   Cast(outLocal, tempLocal.ReinterpretCast<half>(), RoundMode::CAST_ROUND, this->cols_);
 
   calcQueue.FreeTensor(tempLocal);
-  inputXOutQueue.EnQue(outLocal);
+  inputXOutQueue.enqueue(outLocal);
 }
 
 template <typename T>
@@ -278,7 +278,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::CopyOutXQuant1H() {
   if (smoothType == 1) {
     smoothLocal = smoothInQueue.AllocTensor<float>();
     DataCopyPad(smoothLocal, quantSmoothGm, smoothCopyParams, {false, 0, 0, 0});
-    smoothInQueue.EnQue(smoothLocal);
+    smoothInQueue.enqueue(smoothLocal);
     smoothLocal = smoothInQueue.DeQue<float>();
   }
   for (int64_t row = startXRow; row <= endXRow; row++) {
@@ -289,7 +289,7 @@ __aicore__ inline void MoeV2FullLoadDynamicQuant<T>::CopyOutXQuant1H() {
       DataCopyPad(xLocal[colsAlign], xGm_[row * this->cols_], dataXCopyParams, {false, 0, 0, 0});
     }
 
-    xCopyInQueue_.EnQue<T>(xLocal);
+    xCopyInQueue_.enqueue<T>(xLocal);
     Compute(smoothLocal);
 
     LocalTensor<int8_t> outLocal = inputXOutQueue.DeQue<int8_t>();

@@ -2,8 +2,8 @@
  *      https://gitee.com/ascend/ascend-transformer-boost.git
  *
  * Copyright (c) 2024 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -40,7 +40,7 @@ __aicore__ inline void CopyIn(const AscendC::GlobalTensor<T> &gm, Q &queue, uint
 {
     AscendC::LocalTensor<T> local = queue.template AllocTensor<T>();
     DataCopy(local, gm[offset], count);
-    queue.EnQue(local);
+    queue.enqueue(local);
 }
 
 template <typename T, typename Q>
@@ -104,7 +104,7 @@ __aicore__ inline void Cast16AndCopyOut(const AscendC::LocalTensor<float> &in, c
 {
     AscendC::LocalTensor<T> local = queue.template AllocTensor<T>();
     CastFrom32To16(local, in, count);
-    queue.EnQue(local);
+    queue.enqueue(local);
     CopyOut(gm, queue, offset, count);
     AscendC::PipeBarrier<PIPE_V>();
 }

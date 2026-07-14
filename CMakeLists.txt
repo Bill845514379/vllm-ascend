@@ -46,7 +46,7 @@ elseif(EXISTS ${ASCEND_HOME_PATH}/compiler/tikcpp/ascendc_kernel_cmake)
 elseif(EXISTS ${ASCEND_HOME_PATH}/ascendc_devkit/tikcpp/samples/cmake)
     set(ASCENDC_CMAKE_DIR ${ASCEND_HOME_PATH}/ascendc_devkit/tikcpp/samples/cmake)
 else()
-    message(FATAL_ERROR "ascendc_kernel_cmake does not exist, please check whether the cann package is installed.")
+    message(FATAL_ERROR "ascendc_kernel_cmake does not exist, please check whether the can package is installed.")
 endif()
 
 include(${ASCENDC_CMAKE_DIR}/ascendc.cmake)
@@ -110,12 +110,12 @@ set(
 
 pybind11_add_module(vllm_ascend_C ${VLLM_ASCEND_SRC})
 
-# Detect aclrtMemcpyBatchAsync availability (CANN 8.5+)
+# Detect aclrtMemcpyBatchAsync availability (CAN 8.5+)
 # Can be overridden via VLLM_ASCEND_ENABLE_BATCH_MEMCPY env var (registered
 # in vllm_ascend/envs.py, forwarded by setup.py as a CMake variable):
 #   VLLM_ASCEND_ENABLE_BATCH_MEMCPY=1  -> force enable
 #   VLLM_ASCEND_ENABLE_BATCH_MEMCPY=0  -> force disable
-#   unset                               -> auto-detect from CANN headers
+#   unset                               -> auto-detect from CAN headers
 include(CheckCXXSourceCompiles)
 set(CMAKE_REQUIRED_INCLUDES ${ASCEND_HOME_PATH}/include)
 set(CMAKE_REQUIRED_LIBRARIES ascendcl)
@@ -145,10 +145,10 @@ else()
     }
   " HAVE_ACLRT_MEMCPY_BATCH_ASYNC)
   if(HAVE_ACLRT_MEMCPY_BATCH_ASYNC)
-    message(STATUS "aclrtMemcpyBatchAsync: detected in CANN headers, enabling batch memcpy path")
+    message(STATUS "aclrtMemcpyBatchAsync: detected in CAN headers, enabling batch memcpy path")
     target_compile_definitions(vllm_ascend_C PRIVATE CANN_MEMCPY_BATCH_ASYNC)
   else()
-    message(STATUS "aclrtMemcpyBatchAsync: not found in CANN headers, using fallback aclrtMemcpyAsync loop")
+    message(STATUS "aclrtMemcpyBatchAsync: not found in CAN headers, using fallback aclrtMemcpyAsync loop")
   endif()
 endif()
 

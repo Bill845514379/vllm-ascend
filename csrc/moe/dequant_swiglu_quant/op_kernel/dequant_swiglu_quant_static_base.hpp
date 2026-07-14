@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -128,11 +128,11 @@ public:
             DataCopyExtParams activateparams = {1, static_cast<uint32_t>(curCoreRowNum * sizeof(float)), 0, 0, 0};
             LocalTensor<float> activateLocal = inQueueActivationScale.template AllocTensor<float>();
             DataCopyPad(activateLocal, activationScaleGm, activateparams, padParams);
-            inQueueActivationScale.EnQue(activateLocal);
+            inQueueActivationScale.enqueue(activateLocal);
         }
-        inQueueWeightScale.EnQue(weightLocal);
+        inQueueWeightScale.enqueue(weightLocal);
         if (this->biasIsEmpty == 0) {
-            inQueueBias.EnQue(biasTensorLocal);
+            inQueueBias.enqueue(biasTensorLocal);
         }
     }
 
@@ -143,7 +143,7 @@ public:
         LocalTensor<float> quantLocal = inQueueQuant.template AllocTensor<float>();
         DataCopyPad(quantLocal, quantScaleGm[offset], params, padParams);
         DataCopyPad(quantLocal[alignColNum], quantOffsetGm[offset], params, padParams);
-        inQueueQuant.EnQue(quantLocal);
+        inQueueQuant.enqueue(quantLocal);
     }
 
     __aicore__ inline void CopyIn(int64_t offset1, int64_t offset2)
@@ -159,7 +159,7 @@ public:
             DataCopyPad(aLocal, xGm[offset1], params, padParams);
             DataCopyPad(aLocal[alignColNum], xGm[offset2], params, padParams);
         }
-        inQueue.EnQue(aLocal);
+        inQueue.enqueue(aLocal);
     }
 
     __aicore__ inline void dequant(uint64_t tileLen, uint64_t i)
@@ -299,7 +299,7 @@ public:
         LocalTensor <OutType> outLocal = outQueue.template AllocTensor<OutType>();
         // half -> int8
         Cast(outLocal, halfLocal, RoundMode::CAST_NONE, curTileLen);
-        outQueue.template EnQue<OutType>(outLocal);
+        outQueue.template enqueue<OutType>(outLocal);
     }
 
     __aicore__ inline void CopyOut(int64_t colLoop, int64_t idx)

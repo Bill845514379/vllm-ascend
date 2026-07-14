@@ -2,8 +2,8 @@
  *      https://gitee.com/ascend/ascend-transformer-boost.git
  *
  * Copyright (c) 2024 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -14,7 +14,7 @@
 /////////////////////////////////////////////////////
 // l1_to_ub
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct l1_to_ub {
     __aicore__ l1_to_ub(AscendC::LocalTensor<DataType> ubTensor,
                         AscendC::LocalTensor<DataType> l1Tensor,
@@ -30,7 +30,7 @@ struct l1_to_ub {
 /////////////////////////////////////////////////////
 // ub_to_l1
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct ub_to_l1 {
     __aicore__ ub_to_l1(AscendC::LocalTensor<DataType> l1Tensor,
                         AscendC::LocalTensor<DataType> ubTensor,

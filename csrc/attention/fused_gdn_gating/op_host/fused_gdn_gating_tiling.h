@@ -18,7 +18,7 @@
 
 namespace optiling {
 
-// Required by CANN tiling framework.
+// Required by CAN tiling framework.
 struct FusedGdnGatingCompileInfo {};
 
 ge::graphStatus FusedGdnGatingTilingFunc(gert::TilingContext *context);

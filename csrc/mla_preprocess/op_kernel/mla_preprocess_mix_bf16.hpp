@@ -2,8 +2,8 @@
 //   https://gitee.com/ascend/ascend-transformer-boost
 //
 // Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-// This file is a part of the CANN Open Software.
-// Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+// This file is a part of the CAN Open Software.
+// Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
 // Please refer to the License for details. You may not use this file except in compliance with the License.
 // THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 // INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -209,7 +209,7 @@ public:
     }
 
 private:
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
 
     AscendC::GlobalTensor<QkDtype> qGm_;
     AscendC::GlobalTensor<CosDtype> cosGm_;
@@ -274,7 +274,7 @@ __aicore__ inline void ReduceSumCustom(const AscendC::LocalTensor<float> &dst_lo
         AscendC::PipeBarrier<PIPE_V>();
     }
     AscendC::AscendCUtils::SetMask<float>(NUM_PER_REP_FP32);
-    cadd_v<ArchType::ASCEND_V220, float>(dst_local,   // dst
+    cadd_v<archetype::ASCEND_V220, float>(dst_local,   // dst
                                          work_local,  // src
                                          1,           // repeat
                                          0,           // dstRepeatStride
@@ -405,7 +405,7 @@ public:
                              num_col_);
                 SET_FLAG(V, MTE2, EVENT_ID0);
                 WAIT_FLAG(V, MTE2, EVENT_ID0);
-                gm_to_ub_align<ArchType::ASCEND_V220, float>(perTokenDescaleTensor, perTokenDescaleGmTensor[pid],
+                gm_to_ub_align<archetype::ASCEND_V220, float>(perTokenDescaleTensor, perTokenDescaleGmTensor[pid],
                                                              0,              // sid
                                                              1,              // nBurst
                                                              sizeof(float),  // lenBurst
@@ -456,7 +456,7 @@ public:
                 SET_FLAG(S, MTE3, EVENT_ID0);
                 WAIT_FLAG(S, MTE3, EVENT_ID0);
                 if constexpr (!NEED_DEQUANT) {
-                    ub_to_gm_align<ArchType::ASCEND_V220, float>(perTokenDescaleGmTensor[pid], perTokenDescaleTensor, 0,
+                    ub_to_gm_align<archetype::ASCEND_V220, float>(perTokenDescaleGmTensor[pid], perTokenDescaleTensor, 0,
                                                                  1,                  // nBurst
                                                                  1 * sizeof(float),  // lenBurst
                                                                  0,                  // leftPaddingNum
@@ -465,7 +465,7 @@ public:
                                                                  0                   // dstGap
                     );
                 } else {
-                    ub_to_gm_align<ArchType::ASCEND_V220, float>(perTokenDescaleGmTensor[num_row_ + pid],
+                    ub_to_gm_align<archetype::ASCEND_V220, float>(perTokenDescaleGmTensor[num_row_ + pid],
                                                                  perTokenDescaleTensor, 0,
                                                                  1,                  // nBurst
                                                                  1 * sizeof(float),  // lenBurst
@@ -676,7 +676,7 @@ public:
                              num_col_);
                 SET_FLAG(V, MTE2, EVENT_ID0);
                 WAIT_FLAG(V, MTE2, EVENT_ID0);
-                gm_to_ub_align<ArchType::ASCEND_V220, float>(perTokenDescaleTensor, perTokenDescaleGmTensor[pid],
+                gm_to_ub_align<archetype::ASCEND_V220, float>(perTokenDescaleTensor, perTokenDescaleGmTensor[pid],
                                                              0,              // sid
                                                              1,              // nBurst
                                                              sizeof(float),  // lenBurst
@@ -760,7 +760,7 @@ public:
                 SET_FLAG(S, MTE3, EVENT_ID0);
                 WAIT_FLAG(S, MTE3, EVENT_ID0);
                 if constexpr (!NEED_DEQUANT) {
-                    ub_to_gm_align<ArchType::ASCEND_V220, float>(perTokenDescaleGmTensor[pid], perTokenDescaleTensor, 0,
+                    ub_to_gm_align<archetype::ASCEND_V220, float>(perTokenDescaleGmTensor[pid], perTokenDescaleTensor, 0,
                                                                  1,                  // nBurst
                                                                  1 * sizeof(float),  // lenBurst
                                                                  0,                  // leftPaddingNum
@@ -769,7 +769,7 @@ public:
                                                                  0                   // dstGap
                     );
                 } else {
-                    ub_to_gm_align<ArchType::ASCEND_V220, float>(perTokenDescaleGmTensor[num_row_ + pid],
+                    ub_to_gm_align<archetype::ASCEND_V220, float>(perTokenDescaleGmTensor[num_row_ + pid],
                                                                  perTokenDescaleTensor, 0,
                                                                  1,                  // nBurst
                                                                  1 * sizeof(float),  // lenBurst
@@ -1022,7 +1022,7 @@ public:
     }
 
 private:
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
 
     AscendC::GlobalTensor<InDtype> einSumOutGm_;
     AscendC::GlobalTensor<ScaleDtype> scaleGm_;
@@ -1086,11 +1086,11 @@ class PpMatmulEinSum
     using AccumDtype = float;
 
     template <DataFormat srcFormat, DataFormat dstFormat>
-    using CopyGmToCbuf = gm_to_l1<ArchType::ASCEND_V220, InDtype, srcFormat, dstFormat>;
-    using LoadCbufToCa = l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
-    using LoadCbufToCb = l1_to_l0_b<ArchType::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
-    using Mad = mmad<ArchType::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
-    using CopyCcToGm = l0c_to_gm<ArchType::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
+    using CopyGmToCbuf = gm_to_l1<archetype::ASCEND_V220, InDtype, srcFormat, dstFormat>;
+    using LoadCbufToCa = l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
+    using LoadCbufToCb = l1_to_l0_b<archetype::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
+    using Mad = mmad<archetype::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
+    using CopyCcToGm = l0c_to_gm<archetype::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
 
     static constexpr uint32_t L0_PINGPONG_BUFFER_LEN = 16384;
     static constexpr uint32_t L1_PINGPONG_BUFFER_LEN = 131072;
@@ -1123,7 +1123,7 @@ public:
         gm_b.SetGlobalBuffer(reinterpret_cast<__gm__ InDtype *>(gmB));
         gm_c.SetGlobalBuffer(reinterpret_cast<__gm__ OutDtype *>(gmC));
 
-        AsdopsBuffer<ArchType::ASCEND_V220> buf;
+        AsdopsBuffer<archetype::ASCEND_V220> buf;
         l1_base_a = buf.GetBuffer<BufferType::ASCEND_CB, InDtype>(0);
         l1_base_b = buf.GetBuffer<BufferType::ASCEND_CB, InDtype>(RoundUp<CONST_256>(m0 * k0 * sizeof(InDtype)));
         l0a_base = buf.GetBuffer<BufferType::ASCEND_L0A, InDtype>(0);
@@ -1265,7 +1265,7 @@ public:
                     }
                     WAIT_FLAG(M, MTE1, mte1_mad_event_id);
                     if ((m == 1) || (m_actual == 1)) {
-                        l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
+                        l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
                             l0a_buf,                        // dst
                             l1_buf_a[fidx.k * k_part_len],  // src
                             0,                              // mTileCeil
@@ -1529,11 +1529,11 @@ class PpMatmulW8a8Aic
     using AccumDtype = int32_t;
 
     template <DataFormat srcFormat, DataFormat dstFormat>
-    using CopyGmToCbuf = gm_to_l1<ArchType::ASCEND_V220, InDtype, srcFormat, dstFormat>;
-    using LoadCbufToCa = l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
-    using LoadCbufToCb = l1_to_l0_b<ArchType::ASCEND_V220, InDtype, true, DataFormat::ZN, DataFormat::NZ>;
-    using Mmad = mmad<ArchType::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
-    using CopyCcToGm = l0c_to_gm<ArchType::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
+    using CopyGmToCbuf = gm_to_l1<archetype::ASCEND_V220, InDtype, srcFormat, dstFormat>;
+    using LoadCbufToCa = l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
+    using LoadCbufToCb = l1_to_l0_b<archetype::ASCEND_V220, InDtype, true, DataFormat::ZN, DataFormat::NZ>;
+    using Mmad = mmad<archetype::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
+    using CopyCcToGm = l0c_to_gm<archetype::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
 
     static constexpr uint64_t L0_PINGPONG_BUFFER_LEN = 32768;
     static constexpr uint64_t L1_PINGPONG_BUFFER_LEN = 262144;
@@ -1673,7 +1673,7 @@ public:
 private:
     __aicore__ __force_inline__ void InitBuffer()
     {
-        AsdopsBuffer<ArchType::ASCEND_V220> buf;
+        AsdopsBuffer<archetype::ASCEND_V220> buf;
         l1_base_a = buf.template GetBuffer<BufferType::ASCEND_CB, InDtype>(0);
 
         // try load all A matrix
@@ -1897,7 +1897,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aic<withSyncAll, swizzleDir, format
                 }
                 WAIT_FLAG(M, MTE1, mte1_mad_event_id);
                 if ((m == 1) || (m_actual == 1)) {
-                    l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
+                    l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
                         l0a_buf, l1_buf_a[k_part_idx * k_part_len],
                         0,                                        // mTileCeil
                         CeilDiv<CUBE_MATRIX_SIZE_512>(k0_round),  // kPartCeil
@@ -2020,7 +2020,7 @@ public:
         swizzlDirect = gmTilingData.swizzleDirect;
         en_shuffle_k = gmTilingData.enShuffleK;
 
-        AsdopsBuffer<ArchType::ASCEND_V220> buf;
+        AsdopsBuffer<archetype::ASCEND_V220> buf;
         ubInput_ = buf.GetBuffer<BufferType::ASCEND_UB, InDtype>(0);
         ubTempFp32_ = buf.GetBuffer<BufferType::ASCEND_UB, float>(94 * 1024);
         ubOutput_ = buf.GetBuffer<BufferType::ASCEND_UB, OutDtype>(0);
@@ -2143,7 +2143,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         WAIT_FLAG(V, MTE2, EVENT_ID0);
         if constexpr (quantMode == QuantMode::PER_TENSOR_ASYMM_QUANT) {
             if (aligned_s32) {
-                gm_to_ub<ArchType::ASCEND_V220, BiasDtype>(ubPerTensorScale_.ReinterpretCast<BiasDtype>(),
+                gm_to_ub<archetype::ASCEND_V220, BiasDtype>(ubPerTensorScale_.ReinterpretCast<BiasDtype>(),
                                                            gmPerTensorBias_[offsetScale],
                                                            0,                                            // sid
                                                            1,                                            // nBurst
@@ -2151,7 +2151,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
                                                            0,                                            // srcStride
                                                            0);                                           // dstStride
             } else {
-                gm_to_ub_align<ArchType::ASCEND_V220, BiasDtype>(ubPerTensorScale_.ReinterpretCast<BiasDtype>(),
+                gm_to_ub_align<archetype::ASCEND_V220, BiasDtype>(ubPerTensorScale_.ReinterpretCast<BiasDtype>(),
                                                                  gmPerTensorBias_[offsetScale],
                                                                  0,                         // sid
                                                                  1,                         // nBurst
@@ -2163,14 +2163,14 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
             }
         } else {
             if (aligned_s32) {
-                gm_to_ub<ArchType::ASCEND_V220, float>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
+                gm_to_ub<archetype::ASCEND_V220, float>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
                                                        0,                            // sid
                                                        1,                            // nBurst
                                                        n_round * 4 / BLOCK_SIZE_32,  // lenBurst
                                                        0,                            // srcStride
                                                        0);                           // dstStride
             } else {
-                gm_to_ub_align<ArchType::ASCEND_V220, float>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
+                gm_to_ub_align<archetype::ASCEND_V220, float>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
                                                              0,                         // sid
                                                              1,                         // nBurst
                                                              n_actual * sizeof(float),  // lenBurst
@@ -2186,7 +2186,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         }
         WAIT_FLAG(MTE3, MTE2, EVENT_ID0);
         if (aligned_s32) {
-            gm_to_ub<ArchType::ASCEND_V220, int32_t>(ubInput_, gmInput_[offsetC],
+            gm_to_ub<archetype::ASCEND_V220, int32_t>(ubInput_, gmInput_[offsetC],
                                                      0,                  // sid
                                                      m_actual_per_vec,   // nBurst
                                                      n_round / 8,        // lenBurst
@@ -2194,7 +2194,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
                                                      0                   // dstStride
             );
         } else {
-            gm_to_ub_align<ArchType::ASCEND_V220, int32_t>(ubInput_, gmInput_[offsetC],
+            gm_to_ub_align<archetype::ASCEND_V220, int32_t>(ubInput_, gmInput_[offsetC],
                                                            0,                                 // sid
                                                            m_actual_per_vec,                  // nBurst
                                                            n_actual * sizeof(int32_t),        // lenBurst
@@ -2213,7 +2213,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
             AscendC::SetMaskCount();
             AscendC::SetVectorMask<BiasDtype, AscendC::MaskMode::COUNTER>(n_round);
             for (uint32_t i = 0; i < m_actual_per_vec; ++i) {
-                // add_v<ArchType::ASCEND_V220, BiasDtype>(ubInput_[i * n_round],
+                // add_v<archetype::ASCEND_V220, BiasDtype>(ubInput_[i * n_round],
                 //                                         ubInput_[i * n_round],
                 //                                         ubPerTensorScale_.ReinterpretCast<BiasDtype>(),
                 //                                         (uint8_t)(nRepeatCnt), // repeat
@@ -2236,7 +2236,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
             SET_FLAG(V, MTE2, EVENT_ID0);
             WAIT_FLAG(V, MTE2, EVENT_ID0);
             if (aligned_s32) {
-                gm_to_ub<ArchType::ASCEND_V220, ScaleDtype>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
+                gm_to_ub<archetype::ASCEND_V220, ScaleDtype>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
                                                             0,                                             // sid
                                                             1,                                             // nBurst
                                                             n_round * sizeof(ScaleDtype) / BLOCK_SIZE_32,  // lenBurst
@@ -2244,7 +2244,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
                                                             0                                              // dstStride
                 );
             } else {
-                gm_to_ub_align<ArchType::ASCEND_V220, ScaleDtype>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
+                gm_to_ub_align<archetype::ASCEND_V220, ScaleDtype>(ubPerTensorScale_, gmPerTensorScale_[offsetScale],
                                                                   0,                              // sid
                                                                   1,                              // nBurst
                                                                   n_actual * sizeof(ScaleDtype),  // lenBurst
@@ -2263,7 +2263,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         constexpr uint32_t perRepeatNum = maxRepeat * 64;
         uint32_t loopCnt = (m_actual_per_vec * n_actual + perRepeatNum - 1) / perRepeatNum;
         for (uint32_t i = 0; i < loopCnt; i++) {
-            conv_v<ArchType::ASCEND_V220, int32_t, float>(ubInput_.ReinterpretCast<float>()[perRepeatNum * i],
+            conv_v<archetype::ASCEND_V220, int32_t, float>(ubInput_.ReinterpretCast<float>()[perRepeatNum * i],
                                                           ubInput_[perRepeatNum * i],
                                                           (uint8_t)maxRepeat,  // repeat
                                                           (uint16_t)1,         // dstBlockStride
@@ -2275,7 +2275,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         AscendC::PipeBarrier<PIPE_V>();
 
         for (uint32_t i = 0; i < m_actual_per_vec; ++i) {
-            mul_v<ArchType::ASCEND_V220, float>(ubTempFp32_[i * n_round],
+            mul_v<archetype::ASCEND_V220, float>(ubTempFp32_[i * n_round],
                                                 ubInput_.ReinterpretCast<float>()[i * n_round],
                                                 ubPerTensorScale_.ReinterpretCast<float>(),
                                                 (uint8_t)(nRepeatCnt),  // repeat
@@ -2300,7 +2300,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         if (n_actual % 16 > 8) {
             for (uint32_t i = 0; i < loopCnt; i++) {
                 if constexpr (std::is_same_v<OutDtype, __bf16>) {
-                    convr_v<ArchType::ASCEND_V220, float, OutDtype>(ubOutput_[perRepeatNum * i],
+                    convr_v<archetype::ASCEND_V220, float, OutDtype>(ubOutput_[perRepeatNum * i],
                                                                     ubTempFp32_[perRepeatNum * i],
                                                                     (uint8_t)maxRepeat,  // repeat
                                                                     (uint16_t)1,         // dstBlockStride
@@ -2308,7 +2308,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
                                                                     (uint16_t)4,         // dstRepeatStride
                                                                     (uint16_t)8);        // srcRepeatStride
                 } else {
-                    conv_v<ArchType::ASCEND_V220, float, OutDtype>(ubOutput_[perRepeatNum * i],
+                    conv_v<archetype::ASCEND_V220, float, OutDtype>(ubOutput_[perRepeatNum * i],
                                                                    ubTempFp32_[perRepeatNum * i],
                                                                    (uint8_t)maxRepeat,  // repeat
                                                                    (uint16_t)1,         // dstBlockStride
@@ -2320,14 +2320,14 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         } else {
             for (uint32_t i = 0; i < m_actual_per_vec; i++) {
                 if constexpr (std::is_same_v<OutDtype, __bf16>) {
-                    convr_v<ArchType::ASCEND_V220, float, OutDtype>(ubOutput_[n_round_16 * i], ubTempFp32_[n_round * i],
+                    convr_v<archetype::ASCEND_V220, float, OutDtype>(ubOutput_[n_round_16 * i], ubTempFp32_[n_round * i],
                                                                     (uint8_t)nRepeatCnt,  // repeat
                                                                     (uint16_t)1,          // dstBlockStride
                                                                     (uint16_t)1,          // srcBlockStride
                                                                     (uint16_t)4,          // dstRepeatStride
                                                                     (uint16_t)8);         // srcRepeatStride
                 } else {
-                    conv_v<ArchType::ASCEND_V220, float, OutDtype>(ubOutput_[n_round_16 * i], ubTempFp32_[n_round * i],
+                    conv_v<archetype::ASCEND_V220, float, OutDtype>(ubOutput_[n_round_16 * i], ubTempFp32_[n_round * i],
                                                                    (uint8_t)nRepeatCnt,  // repeat
                                                                    (uint16_t)1,          // dstBlockStride
                                                                    (uint16_t)1,          // srcBlockStride
@@ -2339,14 +2339,14 @@ __aicore__ __force_inline__ void PpMatmulW8a8Aiv<OutDtype, withSyncAll, quantMod
         SET_FLAG(V, MTE3, EVENT_ID0);
         WAIT_FLAG(V, MTE3, EVENT_ID0);
         if (aligned_f16) {
-            ub_to_gm<ArchType::ASCEND_V220, OutDtype>(gmOutput_[offsetC], ubOutput_, 0,
+            ub_to_gm<archetype::ASCEND_V220, OutDtype>(gmOutput_[offsetC], ubOutput_, 0,
                                                       m_actual_per_vec,   // nBurst
                                                       n_round / 16,       // lenBurst
                                                       0,                  // srcStride
                                                       (n - n_round) / 16  // dstStride
             );
         } else {
-            ub_to_gm_align<ArchType::ASCEND_V220, OutDtype>(gmOutput_[offsetC], ubOutput_, 0,
+            ub_to_gm_align<archetype::ASCEND_V220, OutDtype>(gmOutput_[offsetC], ubOutput_, 0,
                                                             m_actual_per_vec,                  // nBurst
                                                             n_actual * sizeof(OutDtype),       // lenBurst
                                                             0,                                 // leftPaddingNum
@@ -2733,7 +2733,7 @@ private:
     uint32_t row_work;
     uint32_t row_work_;
 
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
     AscendC::LocalTensor<int32_t> mmTensor;
     AscendC::LocalTensor<float> deScaleTensor;
 

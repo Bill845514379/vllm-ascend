@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -181,7 +181,7 @@ __aicore__ inline void HcPostKernelDSplit<T1, T2>::DataCopyInX(int64_t batchInde
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T1> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(xUb, xGm_[batchIndex * dParam_ + dLoopTimes * dOnceDealing_], copyParams, dataCopyPadParams);
-    inputQue_.EnQue<T1>(xUb);
+    inputQue_.enqueue<T1>(xUb);
 }
 
 template <typename T1, typename T2>
@@ -195,7 +195,7 @@ __aicore__ inline void HcPostKernelDSplit<T1, T2>::DataCopyInPost(int64_t batchI
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T2> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(postUb, postGm_[batchIndex * hcParam_], copyParams, dataCopyPadParams);
-    postQue_.EnQue<T2>(postUb);
+    postQue_.enqueue<T2>(postUb);
 }
 
 template <typename T1, typename T2>
@@ -209,7 +209,7 @@ __aicore__ inline void HcPostKernelDSplit<T1, T2>::DataCopyInResidual(int64_t ba
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T1> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(residualUb, residualGm_[batchIndex * hcParam_ * dParam_ + dLoopTimes * dOnceDealing_], copyParams, dataCopyPadParams);
-    inputQue_.EnQue<T1>(residualUb);
+    inputQue_.enqueue<T1>(residualUb);
 }
 
 template <typename T1, typename T2>
@@ -224,7 +224,7 @@ __aicore__ inline void HcPostKernelDSplit<T1, T2>::DataCopyInComb(int64_t batchI
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T2> dataCopyPadParams{true, 0, padNum, 0};
     DataCopyPad(combUb, combGm_[batchIndex * hcParam_ * hcParam_], copyParams, dataCopyPadParams);
-    combQue_.EnQue<T2>(combUb);
+    combQue_.enqueue<T2>(combUb);
 }
 
 template <typename T1, typename T2>
@@ -350,10 +350,10 @@ __aicore__ inline void HcPostKernelDSplit<T1, T2>::DoCompute(LocalTensor<float> 
             Cast(outSumBuf[i*outAlign], outBuf[i*inputAlign], RoundMode::CAST_RINT, dealNum);
         }
         PipeBarrier<PIPE_V>();
-        outQue_.EnQue<T1>(outSumBuf);
+        outQue_.enqueue<T1>(outSumBuf);
         DataCopyOut(batchIndex, dLoop, dealNum);
     } else {
-        outQue_.EnQue<T1>(outBuf);
+        outQue_.enqueue<T1>(outBuf);
         DataCopyOut(batchIndex, dLoop, dealNum);
     }
 }

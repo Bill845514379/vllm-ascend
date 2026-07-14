@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -138,7 +138,7 @@ __aicore__ inline void MoeCustomFullLoadStaticQuant<T>::ComputeQuant(int64_t xLo
     Cast(halfLocal, intLocal, RoundMode::CAST_ROUND, elements);
     PipeBarrier<PIPE_V>();
     Cast(outLocal, halfLocal, RoundMode::CAST_TRUNC, elements);
-    inputXOutQueue_.EnQue(outLocal);
+    inputXOutQueue_.enqueue(outLocal);
     if constexpr (IsSameType<T, float>::value) {
         this->xCopyInQueue_.FreeTensor(floatLocal);
     } else {
@@ -174,15 +174,15 @@ __aicore__ inline void MoeCustomFullLoadStaticQuant<T>::CopyOutXStaticQuant()
             LocalTensor<T> inLocal = this->xCopyInQueue_.template AllocTensor<T>();
             // copyinx
             DataCopyPad(inLocal, this->xGm_[srcIdx / this->k_ * this->cols_], dataXCopyParams, {false, 0, 0, 0});
-            this->xCopyInQueue_.template EnQue<T>(inLocal);
+            this->xCopyInQueue_.template enqueue<T>(inLocal);
             ComputeQuant(1);
 
             LocalTensor<int8_t> outLocal = inputXOutQueue_.DeQue<int8_t>();
             DataCopyPad(this->expandedXGm_[dstIndex * this->cols_], outLocal, intriParams);
             inputXOutQueue_.FreeTensor(outLocal);
         }
-        this->expandDstToSrcRowQueue_.EnQue(sortedRowIdx);
-        this->expandedExpertIdxCopyOutQueue_.EnQue(expandedExpertIdx);
+        this->expandDstToSrcRowQueue_.enqueue(sortedRowIdx);
+        this->expandedExpertIdxCopyOutQueue_.enqueue(expandedExpertIdx);
     } else {
         LocalTensor<T> xLocal = this->xCopyInQueue_.template AllocTensor<T>();
         LocalTensor<int32_t> expandedRowIdx = this->expandedRowIdxCopyOutQueue_.template DeQue<int32_t>();
@@ -191,7 +191,7 @@ __aicore__ inline void MoeCustomFullLoadStaticQuant<T>::CopyOutXStaticQuant()
         DataCopyExtParams dataXCopyParams{static_cast<uint16_t>(this->endXRow_ - this->startXRow_ + 1),
                                           static_cast<uint32_t>(this->cols_ * sizeof(T)), 0, dstStride, 0};
         DataCopyPad(xLocal, this->xGm_[this->startXRow_ * this->cols_], dataXCopyParams, {false, 0, 0, 0});
-        this->xCopyInQueue_.EnQue(xLocal);
+        this->xCopyInQueue_.enqueue(xLocal);
         SetWaitFlag<HardEvent::MTE2_V>(HardEvent::MTE2_V);
         ComputeQuant(this->endXRow_ - this->startXRow_ + 1);
 
@@ -208,7 +208,7 @@ __aicore__ inline void MoeCustomFullLoadStaticQuant<T>::CopyOutXStaticQuant()
             }
         }
         inputXOutQueue_.FreeTensor(outLocal);
-        this->expandedRowIdxCopyOutQueue_.EnQue(expandedRowIdx);
+        this->expandedRowIdxCopyOutQueue_.enqueue(expandedRowIdx);
     }
 }
 

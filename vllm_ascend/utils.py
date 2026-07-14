@@ -481,7 +481,7 @@ def find_hccl_library() -> str:
     if so_file:
         logger.info("Found hccl from environment variable HCCL_SO_PATH=%s", so_file)
     else:
-        if torch.version.cann is not None:
+        if torch.version.can is not None:
             so_file = "libhccl.so"
         else:
             raise ValueError("HCCL only supports Ascend NPU backends.")

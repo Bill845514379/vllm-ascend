@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -153,7 +153,7 @@ public:
         // half -> int8_t
         LocalTensor<int8_t> outLocal = outQueueF.template AllocTensor<int8_t>();
         Cast(outLocal, halfLocal, RoundMode::CAST_NONE, tileLen);
-        outQueueF.EnQue(outLocal);
+        outQueueF.enqueue(outLocal);
         outLocal = outQueueF.DeQue<int8_t>();
         event_t eventId2 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_S));
         SetFlag<HardEvent::MTE3_S>(eventId2);
@@ -227,7 +227,7 @@ public:
                 Muls(swiLocal, swiLocal, quant_scale, curTileLen);
             }
         }
-        swiGluQueue.template EnQue<float>(swiLocal);
+        swiGluQueue.template enqueue<float>(swiLocal);
     }
 
     __aicore__ inline void BaseCompute(uint64_t curTileLen, uint64_t blockCount, uint64_t idx)
@@ -464,7 +464,7 @@ public:
             DataCopyPadExtParams<float> padParams{false, 0, 0, 0};
             LocalTensor<float> activateLocal1 = inQueueActivationScale.template AllocTensor<float>();
             DataCopyPad(activateLocal1, activationScaleGm[offset3], activateparams, padParams);
-            inQueueActivationScale.EnQue(activateLocal1);
+            inQueueActivationScale.enqueue(activateLocal1);
         }
     }
 
@@ -479,20 +479,20 @@ public:
             // copy bias A
             LocalTensor<BiasType> biasLocalA1 = inBiasQueueA.template AllocTensor<BiasType>();
             DataCopyPad(biasLocalA1, biasGm[offset1], paramsBias, padParams1);
-            inBiasQueueA.EnQue(biasLocalA1);
+            inBiasQueueA.enqueue(biasLocalA1);
             // copy bias B
             LocalTensor<BiasType> biasLocalB1 = inBiasQueueB.template AllocTensor<BiasType>();
             DataCopyPad(biasLocalB1, biasGm[offset2], paramsBias, padParams1);
-            inBiasQueueB.EnQue(biasLocalB1);
+            inBiasQueueB.enqueue(biasLocalB1);
         }
         // copy ws A
         LocalTensor<float> wsLocalA1 = weightScaleQueueA.template AllocTensor<float>();
         DataCopyPad(wsLocalA1, weightScaleGm[offset1], params, padParams);
-        weightScaleQueueA.EnQue(wsLocalA1);
+        weightScaleQueueA.enqueue(wsLocalA1);
         // copy ws B
         LocalTensor<float> wsLocalB1 = weightScaleQueueB.template AllocTensor<float>();
         DataCopyPad(wsLocalB1, weightScaleGm[offset2], params, padParams);
-        weightScaleQueueB.EnQue(wsLocalB1);
+        weightScaleQueueB.enqueue(wsLocalB1);
     }
 
     __aicore__ inline void CopyInQuantScale(uint64_t dataTileLength, uint64_t offset)
@@ -501,7 +501,7 @@ public:
         DataCopyPadExtParams<float> dataCopyPadParams{false, 0, 0, 0};
         LocalTensor<float> scaleLocal = inQueueQuantScale.template AllocTensor<float>();
         DataCopyPad(scaleLocal, quantScaleGm[offset], dataCopyParams, dataCopyPadParams);
-        inQueueQuantScale.EnQue(scaleLocal);
+        inQueueQuantScale.enqueue(scaleLocal);
         quantScaleLocal = inQueueQuantScale.template DeQue<float>();
     }
 
@@ -514,11 +514,11 @@ public:
         // Copy A
         LocalTensor<InType> aLocal = inQueueA.template AllocTensor<InType>();
         DataCopyPad(aLocal, xGm[offset1], dataCopyParams, dataCopyPadParams);
-        inQueueA.EnQue(aLocal);
+        inQueueA.enqueue(aLocal);
         // Copy B
         LocalTensor<InType> bLocal = inQueueB.template AllocTensor<InType>();
         DataCopyPad(bLocal, xGm[offset2], dataCopyParams, dataCopyPadParams);
-        inQueueB.EnQue(bLocal);
+        inQueueB.enqueue(bLocal);
     }
 
     __aicore__ inline int64_t Align(int64_t elementNum, int64_t bytes)

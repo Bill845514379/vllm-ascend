@@ -53,7 +53,7 @@ env_variables: dict[str, Callable[[], Any]] = {
     "SOC_VERSION": lambda: os.getenv("SOC_VERSION", None),
     # If set, vllm-ascend will print verbose logs during compilation
     "VERBOSE": lambda: bool(int(os.getenv("VERBOSE", "0"))),
-    # The home path for CANN toolkit. If not set, the default value is
+    # The home path for CAN toolkit. If not set, the default value is
     # /usr/local/Ascend/ascend-toolkit/latest
     "ASCEND_HOME_PATH": lambda: os.getenv("ASCEND_HOME_PATH", None),
     # The path for HCCL library, it's used by pyhccl communicator backend. If
@@ -108,7 +108,7 @@ env_variables: dict[str, Callable[[], Any]] = {
         int(os.getenv("VLLM_ASCEND_FUSION_OP_TRANSPOSE_KV_CACHE_BY_BLOCK", "1"))
     ),
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
-    # "1": force enable, "0": force disable, None: auto-detect from CANN headers.
+    # "1": force enable, "0": force disable, None: auto-detect from CAN headers.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
 }
 

@@ -106,8 +106,8 @@ msgstr "或"
 msgid "Scheduling optimization:"
 msgstr "调度优化："
 
-msgid "### 3. CANN Optimization"
-msgstr "### 3. CANN 优化"
+msgid "### 3. CAN Optimization"
+msgstr "### 3. CAN 优化"
 
 msgid "#### 3.1. HCCL Optimization"
 msgstr "#### 3.1. HCCL 优化"

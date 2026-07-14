@@ -217,7 +217,7 @@ def _select_expert_use_group_topk(
         original_weights = topk_weights
         topk_weights = topk_weights + e_score_correction_bias.unsqueeze(0)
 
-    # TODO: Change to npu_group_topk when the latest CANN and NNAL is available
+    # TODO: Change to npu_group_topk when the latest CAN and NNAL is available
     # >>> torch_npu._npu_group_topk(topk_weights, group_num=num_expert_group, k=topk_group)
     topk_weights = _native_grouped_topk(topk_weights, num_expert_group, topk_group)
     # TODO bfloat16 is not supported in torch.topk with ge graph.

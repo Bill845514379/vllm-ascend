@@ -2,8 +2,8 @@
 //   https://gitee.com/ascend/ascend-transformer-boost
 //
 // Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-// This file is a part of the CANN Open Software.
-// Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+// This file is a part of the CAN Open Software.
+// Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
 // Please refer to the License for details. You may not use this file except in compliance with the License.
 // THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 // INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -43,11 +43,11 @@ class PpMatmulEinSum
 {
     using LocalTensor = AscendC::LocalTensor<InDtype>;
     template <DataFormat srcFormat = DataFormat::ND, DataFormat dstFormat = DataFormat::ND>
-    using CopyGmToCbuf = gm_to_l1<ArchType::ASCEND_V220, InDtype, srcFormat, dstFormat>;
-    using LoadCbufToCa = l1_to_l0_a<ArchType::ASCEND_V220, InDtype, TA, DataFormat::ZN, DataFormat::ZZ>;
-    using LoadCbufToCb = l1_to_l0_b<ArchType::ASCEND_V220, InDtype, TB, DataFormat::ZN, DataFormat::NZ>;
-    using Mad = mmad<ArchType::ASCEND_V220, InDtype, InDtype, float, TA>;
-    using CopyCcToGm = l0c_to_gm<ArchType::ASCEND_V220, DataFormat::ND, OutDtype, float>;
+    using CopyGmToCbuf = gm_to_l1<archetype::ASCEND_V220, InDtype, srcFormat, dstFormat>;
+    using LoadCbufToCa = l1_to_l0_a<archetype::ASCEND_V220, InDtype, TA, DataFormat::ZN, DataFormat::ZZ>;
+    using LoadCbufToCb = l1_to_l0_b<archetype::ASCEND_V220, InDtype, TB, DataFormat::ZN, DataFormat::NZ>;
+    using Mad = mmad<archetype::ASCEND_V220, InDtype, InDtype, float, TA>;
+    using CopyCcToGm = l0c_to_gm<archetype::ASCEND_V220, DataFormat::ND, OutDtype, float>;
 
 public:
     __aicore__ explicit PpMatmulEinSum(){};
@@ -74,7 +74,7 @@ public:
         swizzle_cnt = gm_tiling_data->swizzlCount;
         en_shuffle_k = gm_tiling_data->enShuffleK;
 
-        AsdopsBuffer<ArchType::ASCEND_V220> buf;
+        AsdopsBuffer<archetype::ASCEND_V220> buf;
         l1_base_a = buf.template GetBuffer<BufferType::ASCEND_CB, InDtype>(0);
         l1_base_b = buf.template GetBuffer<BufferType::ASCEND_CB, InDtype>(
             RoundUp<uint64_t>(m0 * k0 * sizeof(InDtype), CONST_256UL));
@@ -511,7 +511,7 @@ public:
                     }
                     WAIT_FLAG(M, MTE1, mte1_mad_event_id);
                     if ((m == 1) || (m_actual == 1 && !TA)) {
-                        l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
+                        l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
                             l0a_buf,                        // dst
                             l1_buf_a[fidx.k * k_part_len],  // src
                             0,                              // mTileCeil

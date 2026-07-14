@@ -56,7 +56,7 @@ def check_or_set_default_env(cmake_args, env_name, env_variable, default_path=""
         env_variable = default_path
     else:
         logging.info("Found existing %s: %s", env_name, env_variable)
-    # cann package seems will check this environments in cmake, need write this env variable back.
+    # can package seems will check this environments in cmake, need write this env variable back.
     if env_name == "ASCEND_HOME_PATH":
         os.environ["ASCEND_HOME_PATH"] = env_variable
     cmake_args += [f"-D{env_name}={env_variable}"]
@@ -343,7 +343,7 @@ class cmake_build_ext(build_ext):
         cmake_args += [f"-DTORCH_NPU_PATH={torch_npu_path}"]
 
         # Pass VLLM_ASCEND_ENABLE_BATCH_MEMCPY to CMake if explicitly set.
-        # When unset (None), CMake will auto-detect from CANN headers.
+        # When unset (None), CMake will auto-detect from CAN headers.
         if envs.VLLM_ASCEND_ENABLE_BATCH_MEMCPY is not None:
             cmake_args += [f"-DVLLM_ASCEND_ENABLE_BATCH_MEMCPY={envs.VLLM_ASCEND_ENABLE_BATCH_MEMCPY}"]
 

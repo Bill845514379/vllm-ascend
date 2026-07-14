@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -33,13 +33,13 @@ import os, sys
 import ctypes
 import json
 import shutil
-from tbe.common.platform import get_soc_spec
-from tbe.common.utils import para_check
-from tbe.tikcpp import compile_op, replay_op, check_op_cap, generalize_op_params, get_code_channel, OpInfo
-from tbe.tikcpp.compile_op import CommonUtility, AscendCLogLevel
-from tbe.common.buildcfg import get_default_build_config
-from tbe.common.buildcfg import get_current_build_config
-import tbe.common.register as tbe_register
+from the.common.platform import get_soc_spec
+from the.common.utils import para_check
+from the.tikcpp import compile_op, replay_op, check_op_cap, generalize_op_params, get_code_channel, OpInfo
+from the.tikcpp.compile_op import CommonUtility, AscendCLogLevel
+from the.common.buildcfg import get_default_build_config
+from the.common.buildcfg import get_current_build_config
+import the.common.register as tbe_register
 PYF_PATH = os.path.dirname(os.path.realpath(__file__))
 
 DTYPE_MAP = {{"float32": ["DT_FLOAT", "float"],
@@ -279,7 +279,7 @@ COMPILE_OP_API_BUILT_IN = """
 
     op_compile_option = '{}'
     opp_path = os.environ.get('ASCEND_OPP_PATH')
-    dat_path = os.path.realpath(os.path.join(opp_path, "built-in", "op_impl", "ai_core", "tbe", "ascendc_impl.dat"))
+    dat_path = os.path.realpath(os.path.join(opp_path, "built-in", "op_impl", "ai_core", "the", "ascendc_impl.dat"))
     if opp_path and os.path.exists(dat_path):
         # dat file exists: built in hidden src file online compiling process. append vfs compile option in compile_op
         abs_rel_kernel_src_path = "{}"

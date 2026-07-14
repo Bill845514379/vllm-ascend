@@ -2,8 +2,8 @@
  *      https://gitee.com/ascend/ascend-transformer-boost.git
  *
  * Copyright (c) 2024 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -18,7 +18,7 @@
 /////////////////////////////////////////////////////
 // vcgadd
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void cgadd_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, const int32_t repeat,
                                const int32_t dstRepStride, const int32_t srcBlkStride, const int32_t srcRepStride)
 {
@@ -28,7 +28,7 @@ __aicore__ inline void cgadd_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTe
 /////////////////////////////////////////////////////
 // vadd
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void add_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1, uint8_t repeat, uint8_t dstBlockStride,
                              uint8_t src0BlockStride, uint8_t src1BlockStride, uint8_t dstRepeatStride,
@@ -42,7 +42,7 @@ __aicore__ inline void add_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTens
 /////////////////////////////////////////////////////
 // vadds
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void adds_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, DType scalarValue,
                               uint8_t repeat, uint8_t dstBlockStride, uint8_t srcBlockStride, uint8_t dstRepeatStride,
                               uint8_t srcRepeatStride)
@@ -55,7 +55,7 @@ __aicore__ inline void adds_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vcadd
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void cadd_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, uint8_t repeat,
                               uint16_t dstRepeatStride, uint16_t srcBlockStride, uint16_t srcRepeatStride)
 {
@@ -64,7 +64,7 @@ __aicore__ inline void cadd_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vbrcb
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void brcb_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, uint16_t dstBlockStride,
                               uint16_t dstRepeatStride, uint8_t repeat)
 {
@@ -74,7 +74,7 @@ __aicore__ inline void brcb_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vcmax
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType, AscendC::ReduceOrder OrderType>
+template <archetype ArchTag, typename DType, AscendC::ReduceOrder OrderType>
 __aicore__ inline void cmax_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, uint8_t repeat,
                               uint16_t dstRepeatStride, uint16_t srcBlockStride, uint16_t srcRepeatStride)
 {
@@ -90,7 +90,7 @@ __aicore__ inline void cmax_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vconv
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DTypeIn, typename DTypeOut>
+template <archetype ArchTag, typename DTypeIn, typename DTypeOut>
 __aicore__ inline void conv_v(AscendC::LocalTensor<DTypeOut> dst, AscendC::LocalTensor<DTypeIn> src, uint8_t repeat,
                               uint16_t dstBlockStride, uint16_t srcBlockStride, uint16_t dstRepeatStride,
                               uint16_t srcRepeatStride)
@@ -109,7 +109,7 @@ __aicore__ inline void conv_v(AscendC::LocalTensor<DTypeOut> dst, AscendC::Local
 /////////////////////////////////////////////////////
 // vconv_f322bf16r
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DTypeIn, typename DTypeOut>
+template <archetype ArchTag, typename DTypeIn, typename DTypeOut>
 __aicore__ inline void convr_v(AscendC::LocalTensor<DTypeOut> dst, AscendC::LocalTensor<DTypeIn> src, uint8_t repeat,
                                uint16_t dstBlockStride, uint16_t srcBlockStride, uint16_t dstRepeatStride,
                                uint16_t srcRepeatStride)
@@ -122,7 +122,7 @@ __aicore__ inline void convr_v(AscendC::LocalTensor<DTypeOut> dst, AscendC::Loca
 /////////////////////////////////////////////////////
 // vdiv
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void div_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1, uint8_t repeat, uint8_t dstBlockStride,
                              uint8_t src0BlockStride, uint8_t src1BlockStride, uint8_t dstRepeatStride,
@@ -136,7 +136,7 @@ __aicore__ inline void div_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTens
 /////////////////////////////////////////////////////
 // vexp
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void exp_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, uint8_t repeat,
                              uint16_t dstBlockStride, uint16_t srcBlockStride, uint16_t dstRepeatStride,
                              uint16_t srcRepeatStride)
@@ -149,7 +149,7 @@ __aicore__ inline void exp_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTens
 /////////////////////////////////////////////////////
 // vmax
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void max_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1, uint8_t repeat, uint8_t dstBlockStride,
                              uint8_t src0BlockStride, uint8_t src1BlockStride, uint8_t dstRepeatStride,
@@ -163,7 +163,7 @@ __aicore__ inline void max_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTens
 /////////////////////////////////////////////////////
 // vmul
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void mul_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1, uint8_t repeat, uint8_t dstBlockStride,
                              uint8_t src0BlockStride, uint8_t src1BlockStride, uint8_t dstRepeatStride,
@@ -177,7 +177,7 @@ __aicore__ inline void mul_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTens
 /////////////////////////////////////////////////////
 // vmuls
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void muls_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0, DType src1,
                               uint8_t repeat, uint16_t dstBlockStride, uint16_t srcBlockStride,
                               uint16_t dstRepeatStride, uint16_t srcRepeatStride)
@@ -190,7 +190,7 @@ __aicore__ inline void muls_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vsub
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void sub_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0,
                              AscendC::LocalTensor<DType> src1, uint8_t repeat, uint8_t dstBlockStride,
                              uint8_t src0BlockStride, uint8_t src1BlockStride, uint8_t dstRepeatStride,
@@ -204,7 +204,7 @@ __aicore__ inline void sub_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTens
 /////////////////////////////////////////////////////
 // vmaxs
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void maxs_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0, DType src1,
                               uint8_t repeat, uint16_t dstBlockStride, uint16_t srcBlockStride,
                               uint16_t dstRepeatStride, uint16_t srcRepeatStride)
@@ -217,7 +217,7 @@ __aicore__ inline void maxs_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vmins
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void mins_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src0, DType src1,
                               uint8_t repeat, uint16_t dstBlockStride, uint16_t srcBlockStride,
                               uint16_t dstRepeatStride, uint16_t srcRepeatStride)
@@ -230,7 +230,7 @@ __aicore__ inline void mins_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vsqrt
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void sqrt_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, uint8_t repeat,
                               uint16_t dstBlockStride, uint16_t srcBlockStride, uint16_t dstRepeatStride,
                               uint16_t srcRepeatStride)
@@ -243,7 +243,7 @@ __aicore__ inline void sqrt_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTen
 /////////////////////////////////////////////////////
 // vln
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void ln_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, uint8_t repeat,
                             uint16_t dstBlockStride, uint16_t srcBlockStride, uint16_t dstRepeatStride,
                             uint16_t srcRepeatStride)
@@ -256,7 +256,7 @@ __aicore__ inline void ln_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTenso
 /////////////////////////////////////////////////////
 // vtranspose
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void tranpose_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src)
 {
     AscendC::Transpose(dst, src);
@@ -265,7 +265,7 @@ __aicore__ inline void tranpose_v(AscendC::LocalTensor<DType> dst, AscendC::Loca
 /////////////////////////////////////////////////////
 // vcgmax
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DType>
+template <archetype ArchTag, typename DType>
 __aicore__ inline void cgmax_v(AscendC::LocalTensor<DType> dst, AscendC::LocalTensor<DType> src, const int32_t repeat,
                                const int32_t dstRepStride, const int32_t srcBlkStride, const int32_t srcRepStride)
 {

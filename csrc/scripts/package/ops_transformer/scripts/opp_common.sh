@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -62,8 +62,8 @@ createOpapiLatestSoftlink() {
     . $1/$targetPkg/scene.info
     osName=${os}
   fi
-  opapi_lib_path="$1/opp/built-in/op_impl/ai_core/tbe/op_api/lib/${osName}/${architecture}"
-  opapi_include_level1_path="$1/opp/built-in/op_impl/ai_core/tbe/op_api/include/aclnnop"
+  opapi_lib_path="$1/opp/built-in/op_impl/ai_core/the/op_api/lib/${osName}/${architecture}"
+  opapi_include_level1_path="$1/opp/built-in/op_impl/ai_core/the/op_api/include/aclnnop"
   opapi_include_level2_path="${opapi_include_level1_path}/level2"
   if [ ! -d ${opapi_lib_path} ] || [ ! -d ${opapi_include_level1_path} ] || [ ! -d ${opapi_include_level2_path} ]; then
     return 3
@@ -109,8 +109,8 @@ createOpapiSoftlink() {
     . $1/opp/scene.info
     osName=${os}
   fi
-  opapi_lib_path="$1/opp/built-in/op_impl/ai_core/tbe/op_api/lib/${osName}/${architecture}"
-  opapi_include_level1_path="$1/opp/built-in/op_impl/ai_core/tbe/op_api/include/aclnnop"
+  opapi_lib_path="$1/opp/built-in/op_impl/ai_core/the/op_api/lib/${osName}/${architecture}"
+  opapi_include_level1_path="$1/opp/built-in/op_impl/ai_core/the/op_api/include/aclnnop"
   opapi_include_level2_path="${opapi_include_level1_path}/level2"
 
   if [ ! -d ${opapi_lib_path} ] || [ ! -d ${opapi_include_level1_path} ] || [ ! -d ${opapi_include_level2_path} ]; then
@@ -195,8 +195,8 @@ latestSoftlinksRemove() {
     . $targetdir/opp/scene.info
     osName=${os}
   fi
-  opapi_lib_path="$targetdir/opp/built-in/op_impl/ai_core/tbe/op_api/lib/${osName}/${architecture}"
-  opapi_include_level1_path="$1/opp/built-in/op_impl/ai_core/tbe/op_api/include/aclnnop"
+  opapi_lib_path="$targetdir/opp/built-in/op_impl/ai_core/the/op_api/lib/${osName}/${architecture}"
+  opapi_include_level1_path="$1/opp/built-in/op_impl/ai_core/the/op_api/include/aclnnop"
   opapi_include_level2_path="${opapi_include_level1_path}/level2"
 
   if [ -d $(dirname $targetdir)/latest/${architectureDir}/lib64 ]; then
@@ -229,8 +229,8 @@ softlinksRemove() {
     . $targetdir/opp/scene.info
     osName=${os}
   fi
-  opapi_lib_path="$targetdir/opp/built-in/op_impl/ai_core/tbe/op_api/lib/${osName}/${architecture}"
-  opapi_include_level1_path="$targetdir/opp/built-in/op_impl/ai_core/tbe/op_api/include/aclnnop"
+  opapi_lib_path="$targetdir/opp/built-in/op_impl/ai_core/the/op_api/lib/${osName}/${architecture}"
+  opapi_include_level1_path="$targetdir/opp/built-in/op_impl/ai_core/the/op_api/include/aclnnop"
   opapi_include_level2_path="${opapi_include_level1_path}/level2"
 
   # first the libopapi.so

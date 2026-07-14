@@ -2,8 +2,8 @@
 //   https://gitee.com/ascend/ascend-transformer-boost
 //
 // Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-// This file is a part of the CANN Open Software.
-// Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+// This file is a part of the CAN Open Software.
+// Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
 // Please refer to the License for details. You may not use this file except in compliance with the License.
 // THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 // INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -209,7 +209,7 @@ public:
     }
 
 private:
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
 
     AscendC::GlobalTensor<QkDtype> qGm_;
     AscendC::GlobalTensor<CosDtype> cosGm_;
@@ -274,7 +274,7 @@ __aicore__ inline void ReduceSumCustom(const AscendC::LocalTensor<float> &dst_lo
         AscendC::PipeBarrier<PIPE_V>();
     }
     AscendC::AscendCUtils::SetMask<float>(NUM_PER_REP_FP32);
-    cadd_v<ArchType::ASCEND_V220, float>(dst_local,   // dst
+    cadd_v<archetype::ASCEND_V220, float>(dst_local,   // dst
                                          work_local,  // src
                                          1,           // repeat
                                          0,           // dstRepeatStride
@@ -457,11 +457,11 @@ class PpMatmulEinSum
     using AccumDtype = float;
 
     template <DataFormat srcFormat, DataFormat dstFormat>
-    using CopyGmToCbuf = gm_to_l1<ArchType::ASCEND_V220, InDtype, srcFormat, dstFormat>;
-    using LoadCbufToCa = l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
-    using LoadCbufToCb = l1_to_l0_b<ArchType::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
-    using Mad = mmad<ArchType::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
-    using CopyCcToGm = l0c_to_gm<ArchType::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
+    using CopyGmToCbuf = gm_to_l1<archetype::ASCEND_V220, InDtype, srcFormat, dstFormat>;
+    using LoadCbufToCa = l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
+    using LoadCbufToCb = l1_to_l0_b<archetype::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
+    using Mad = mmad<archetype::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
+    using CopyCcToGm = l0c_to_gm<archetype::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
 
     static constexpr uint32_t L0_PINGPONG_BUFFER_LEN = 16384;
     static constexpr uint32_t L1_PINGPONG_BUFFER_LEN = 131072;
@@ -494,7 +494,7 @@ public:
         gm_b.SetGlobalBuffer(reinterpret_cast<__gm__ InDtype *>(gmB));
         gm_c.SetGlobalBuffer(reinterpret_cast<__gm__ OutDtype *>(gmC));
 
-        AsdopsBuffer<ArchType::ASCEND_V220> buf;
+        AsdopsBuffer<archetype::ASCEND_V220> buf;
         l1_base_a = buf.GetBuffer<BufferType::ASCEND_CB, InDtype>(0);
         l1_base_b = buf.GetBuffer<BufferType::ASCEND_CB, InDtype>(RoundUp<CONST_256>(m0 * k0 * sizeof(InDtype)));
         l0a_base = buf.GetBuffer<BufferType::ASCEND_L0A, InDtype>(0);
@@ -638,7 +638,7 @@ public:
                     }
                     WAIT_FLAG(M, MTE1, mte1_mad_event_id);
                     if ((m == 1) || (m_actual == 1)) {
-                        l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
+                        l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
                             l0a_buf,                        // dst
                             l1_buf_a[fidx.k * k_part_len],  // src
                             0,                              // mTileCeil
@@ -1153,7 +1153,7 @@ private:
     uint32_t row_work;
     uint32_t row_work_;
 
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
 
     AscendC::GlobalTensor<InDtype> hiddenStateGmTensor;
 

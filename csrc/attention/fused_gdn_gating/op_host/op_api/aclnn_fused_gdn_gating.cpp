@@ -32,7 +32,7 @@ extern "C" {
 namespace {
 
 struct FusedGdnGatingParams {
-    const aclTensor *aLog{nullptr};
+    const aclTensor *along{nullptr};
     const aclTensor *a{nullptr};
     const aclTensor *b{nullptr};
     const aclTensor *dtBias{nullptr};
@@ -51,7 +51,7 @@ static const std::initializer_list<op::DataType> PARAM_TYPE_SUPPORT_LIST =
 
 static inline bool CheckNotNull(const FusedGdnGatingParams &params)
 {
-    OP_CHECK_NULL(params.aLog,   return false);
+    OP_CHECK_NULL(params.along,   return false);
     OP_CHECK_NULL(params.a,      return false);
     OP_CHECK_NULL(params.b,      return false);
     OP_CHECK_NULL(params.dtBias, return false);
@@ -62,7 +62,7 @@ static inline bool CheckNotNull(const FusedGdnGatingParams &params)
 
 static inline bool CheckDtype(const FusedGdnGatingParams &params)
 {
-    OP_CHECK_DTYPE_NOT_SUPPORT(params.aLog,       PARAM_TYPE_SUPPORT_LIST, return false);
+    OP_CHECK_DTYPE_NOT_SUPPORT(params.along,       PARAM_TYPE_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(params.dtBias,     PARAM_TYPE_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(params.a,          AB_TYPE_SUPPORT_LIST,   return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(params.b,          AB_TYPE_SUPPORT_LIST,   return false);
@@ -72,7 +72,7 @@ static inline bool CheckDtype(const FusedGdnGatingParams &params)
              OP_LOGE(ACLNN_ERR_PARAM_INVALID, "a and b must have the same dtype."),
              return false);
     OP_CHECK(params.aLog->GetDataType() == params.dtBias->GetDataType(),
-             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "aLog and dtBias must have the same dtype."),
+             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "along and dtBias must have the same dtype."),
              return false);
     OP_CHECK(params.betaOutput->GetDataType() == params.b->GetDataType(),
              OP_LOGE(ACLNN_ERR_PARAM_INVALID, "betaOutput and b must have the same dtype."),
@@ -90,23 +90,23 @@ static aclnnStatus CheckParams(const FusedGdnGatingParams &params)
 } // namespace
 
 aclnnStatus aclnnFusedGdnGatingGetWorkspaceSize(
-    const aclTensor *aLog, const aclTensor *a, const aclTensor *b,
+    const aclTensor *along, const aclTensor *a, const aclTensor *b,
     const aclTensor *dtBias, float beta, float threshold,
     aclTensor *g, aclTensor *betaOutput,
     uint64_t *workspaceSize, aclOpExecutor **executor)
 {
     L2_DFX_PHASE_1(aclnnFusedGdnGating,
-                   DFX_IN(aLog, a, b, dtBias, beta, threshold),
+                   DFX_IN(along, a, b, dtBias, beta, threshold),
                    DFX_OUT(g, betaOutput));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
-    FusedGdnGatingParams params{aLog, a, b, dtBias, beta, threshold, g, betaOutput};
+    FusedGdnGatingParams params{along, a, b, dtBias, beta, threshold, g, betaOutput};
     CHECK_RET(CheckParams(params) == ACLNN_SUCCESS, ACLNN_ERR_PARAM_INVALID);
 
     // Bring inputs to a contiguous form that the kernel expects.
-    auto aLogContig   = l0op::Contiguous(aLog,   uniqueExecutor.get());
+    auto aLogContig   = l0op::Contiguous(along,   uniqueExecutor.get());
     auto aContig      = l0op::Contiguous(a,      uniqueExecutor.get());
     auto bContig      = l0op::Contiguous(b,      uniqueExecutor.get());
     auto dtBiasContig = l0op::Contiguous(dtBias, uniqueExecutor.get());

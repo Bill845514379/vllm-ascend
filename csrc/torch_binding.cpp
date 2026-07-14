@@ -167,7 +167,7 @@ void swap_blocks_batch(const torch::Tensor& src_ptrs,
     }
 
     // =========================================================================
-    // path 1: aclrtMemcpyBatchAsync (CANN 8.5+)
+    // path 1: aclrtMemcpyBatchAsync (CAN 8.5+)
     // =========================================================================
 #if defined(CANN_MEMCPY_BATCH_ASYNC)
     if (memcpy_kind != ACL_MEMCPY_DEVICE_TO_DEVICE) {
@@ -812,7 +812,7 @@ at::Tensor npu_causal_conv1d_custom(
     return output;
 }
 
-// It is expected that further improvements will be made after it is incorporated into CANN on June 30th.
+// It is expected that further improvements will be made after it is incorporated into CAN on June 30th.
 std::vector<at::Tensor> moe_grouped_matmul(
     at::Tensor x,
     at::Tensor weight,

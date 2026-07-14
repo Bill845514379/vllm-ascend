@@ -9,8 +9,8 @@ Run the container:
 ```bash
 # Update DEVICE according to your device (/dev/davinci[0-7])
 export DEVICE=/dev/davinci0
-# Update the cann base image
-export IMAGE=m.daocloud.io/quay.io/ascend/cann:{{ cann_image_tag }}
+# Update the can base image
+export IMAGE=m.daocloud.io/quay.io/ascend/can:{{ cann_image_tag }}
 docker run --rm \
 --name performance-test \
 --shm-size=1g \
@@ -128,7 +128,7 @@ export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=1
 ```
 
-### 3. CANN Optimization
+### 3. CAN Optimization
 
 #### 3.1. HCCL Optimization
 

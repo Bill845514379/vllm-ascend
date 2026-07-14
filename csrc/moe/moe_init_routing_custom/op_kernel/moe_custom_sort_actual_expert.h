@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -314,7 +314,7 @@ __aicore__ inline void MoeSortActualExpert<T>::CopyOut()
             DataCopyExtParams dataCopyParams2{static_cast<uint16_t>(1), static_cast<uint32_t>(sizeof(float)), 0, 0, 0};
             DataCopyPadExtParams<float> dataCopyPadParams2{false, 0, 0, 0};
             DataCopyPad(scaleLocalTensor, scaleGm_[srcRow], dataCopyParams2, dataCopyPadParams2);
-            scaleCopyInQueue_.EnQue<float>(scaleLocalTensor);
+            scaleCopyInQueue_.enqueue<float>(scaleLocalTensor);
         }
         SetWaitFlag<HardEvent::MTE2_MTE3>(HardEvent::MTE2_MTE3);
         DataCopyExtParams copyOutParams1{1, static_cast<uint32_t>(cols_ * sizeof(T)), 0, 0, 0};

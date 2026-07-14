@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -170,13 +170,13 @@ namespace MoeGatingTopKHashRegbaseNS
                 DataCopyPad(xInLocalTensor[expertCountAlign_].ReinterpretCast<T>(), xGm_[row * expertCount_], dataCopyParams,
                             dataCopyPadParams);
             }
-            xInQueue_.EnQue(xInLocalTensor);
+            xInQueue_.enqueue(xInLocalTensor);
         }
         else
         {
             LocalTensor<T> xInLocalTensor = xInQueue_.AllocTensor<T>();
             DataCopyPad(xInLocalTensor, xGm_[row * expertCount_], dataCopyParams, dataCopyPadParams);
-            xInQueue_.EnQue(xInLocalTensor);
+            xInQueue_.enqueue(xInLocalTensor);
         }
     }
 
@@ -562,7 +562,7 @@ namespace MoeGatingTopKHashRegbaseNS
         LocalTensor<float> outOutTensor = outOutQueue_.AllocTensor<float>();
         LocalTensor<float> xSigmoidTensor = xSigmoidBuf_.Get<float>();
         DataCopy(outOutTensor, xSigmoidTensor, expertCountAlign_);
-        outOutQueue_.EnQue<float>(outOutTensor);
+        outOutQueue_.enqueue<float>(outOutTensor);
         outOutTensor = outOutQueue_.DeQue<float>();
         DataCopyExtParams dataCopyParams{
             static_cast<uint16_t>(groupCount_), static_cast<uint32_t>(perGroupExpertCount_ * sizeof(float)),
@@ -637,8 +637,8 @@ namespace MoeGatingTopKHashRegbaseNS
             }
         }
 
-        yOutQueue_.EnQue(yTensor);
-        expertIdxOutQueue_.EnQue<int32_t>(expertIdxTensor);
+        yOutQueue_.enqueue(yTensor);
+        expertIdxOutQueue_.enqueue<int32_t>(expertIdxTensor);
     }
 
     template <typename T, typename  U1, typename U2>
@@ -798,8 +798,8 @@ namespace MoeGatingTopKHashRegbaseNS
                                            routedScalingFactor_);
             }
         }
-        yOutQueue_.EnQue(yTensor);
-        expertIdxOutQueue_.EnQue<int32_t>(expertIdxTensor);
+        yOutQueue_.enqueue(yTensor);
+        expertIdxOutQueue_.enqueue<int32_t>(expertIdxTensor);
     }
 
     template <typename T, typename  U1, typename U2>
@@ -1436,8 +1436,8 @@ namespace MoeGatingTopKHashRegbaseNS
             }
         }
 
-        yOutQueue_.EnQue(yTensor);
-        expertIdxOutQueue_.EnQue<int32_t>(expertIdxTensor);
+        yOutQueue_.enqueue(yTensor);
+        expertIdxOutQueue_.enqueue<int32_t>(expertIdxTensor);
     }
 
     template <typename T, typename  U1, typename U2>

@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -105,7 +105,7 @@ function(op_add_subdirectory OP_LIST OP_DIR_LIST)
         get_filename_component(OP_NAME "${OP_DIR}" NAME)
 
         if (NOT BUILD_OPEN_PROJECT)
-            if (EXISTS ${TOP_DIR}/asl/ops/cann/ops/built-in/tbe/impl/ascendc/${OP_NAME})
+            if (EXISTS ${TOP_DIR}/asl/ops/can/ops/built-in/the/impl/ascendc/${OP_NAME})
                 continue()
             endif ()
         endif ()
@@ -160,7 +160,7 @@ function(op_add_depend_directory)
 
                 get_filename_component(_depend_op_name "${depend_info}" NAME)
                 if (NOT BUILD_OPEN_PROJECT)
-                    if (EXISTS ${TOP_DIR}/asl/ops/cann/ops/built-in/tbe/impl/ascendc/${_depend_op_name})
+                    if (EXISTS ${TOP_DIR}/asl/ops/can/ops/built-in/the/impl/ascendc/${_depend_op_name})
                         continue()
                     endif ()
                 endif ()
@@ -231,7 +231,7 @@ function(add_ops_info_target)
     else()
         set(OPS_INFO_JSON ${ASCEND_AUTOGEN_DIR}/aic-${OPINFO_COMPUTE_UNIT}-ops-info.json)
     endif()
-    set(CUSTOM_OPS_INFO_DIR ${CUSTOM_DIR}/op_impl/ai_core/tbe/config/${OPINFO_COMPUTE_UNIT})
+    set(CUSTOM_OPS_INFO_DIR ${CUSTOM_DIR}/op_impl/ai_core/the/config/${OPINFO_COMPUTE_UNIT})
 
     set(OPS_INFO_INI          ${base_aclnn_binary_dir}/aic-${OPINFO_COMPUTE_UNIT}-ops-info.ini)
     set(OPS_INFO_INNER_INI    ${base_aclnn_binary_dir}/inner/aic-${OPINFO_COMPUTE_UNIT}-ops-info.ini)
@@ -256,11 +256,11 @@ function(add_ops_info_target)
 
     if (ENABLE_BUILT_IN)
         install(FILES ${OPS_INFO_JSON}
-                DESTINATION ops_transformer/built-in/op_impl/ai_core/tbe/config/${OPINFO_COMPUTE_UNIT} OPTIONAL
+                DESTINATION ops_transformer/built-in/op_impl/ai_core/the/config/${OPINFO_COMPUTE_UNIT} OPTIONAL
         )
     else()
         install(FILES ${OPS_INFO_JSON}
-                DESTINATION packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/config/${OPINFO_COMPUTE_UNIT} OPTIONAL
+                DESTINATION packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/config/${OPINFO_COMPUTE_UNIT} OPTIONAL
         )
     endif()
 endfunction()
@@ -452,9 +452,9 @@ function(add_bin_compile_target)
     cmake_parse_arguments(BINARY "" "COMPUTE_UNIT" "OP_INFO" ${ARGN})
 
     if (ENABLE_BUILT_IN)
-        set(_INSTALL_DIR ops_transformer/built-in/op_impl/ai_core/tbe/kernel)
+        set(_INSTALL_DIR ops_transformer/built-in/op_impl/ai_core/the/kernel)
     else()
-        set(_INSTALL_DIR packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/kernel)
+        set(_INSTALL_DIR packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/kernel)
     endif()
     set(_OUT_DIR ${ASCEND_BINARY_OUT_DIR}/${BINARY_COMPUTE_UNIT})
 

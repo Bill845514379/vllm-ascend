@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -158,8 +158,8 @@ MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>::ComputeQuant(LocalTen
     PipeBarrier<PIPE_V>();
     Cast(outLocal, intLocal.ReinterpretCast<half>(), RoundMode::CAST_TRUNC, this->cols_);
 
-    inputXOutQueue_.EnQue<int8_t>(outLocal);
-    scaleOutQueue_.EnQue<float>(dynamicQuantLocal);
+    inputXOutQueue_.enqueue<int8_t>(outLocal);
+    scaleOutQueue_.enqueue<float>(dynamicQuantLocal);
 }
 
 template <typename T, const int COPYOUTTYPE, const int SMOOTHTYPE>
@@ -178,7 +178,7 @@ __aicore__ inline void MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>
 
     if constexpr (SMOOTHTYPE == SCALE_1H) {
         DataCopyPad(smoothLocal, quantSmoothGm_, smoothCopyParams, {false, 0, 0, 0});
-        smoothInQueue_.EnQue(smoothLocal);
+        smoothInQueue_.enqueue(smoothLocal);
         smoothLocal = smoothInQueue_.DeQue<float>();
     }
 
@@ -204,13 +204,13 @@ __aicore__ inline void MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>
             DataCopyPad(xLocal[colsAlign_], this->xGm_[srcIdx / this->k_ * this->cols_], dataXCopyParams,
                         {false, 0, 0, 0});
         }
-        xCopyInQueue_.EnQue<T>(xLocal);
+        xCopyInQueue_.enqueue<T>(xLocal);
 
         // copyin dynamic scale
         if constexpr (SMOOTHTYPE == SCALE_EH) {
             if (expertIdx != lastExpertIdx) {
                 DataCopyPad(smoothLocal, quantSmoothGm_[expertIdx * this->cols_], smoothCopyParams, {false, 0, 0, 0});
-                smoothInQueue_.EnQue(smoothLocal);
+                smoothInQueue_.enqueue(smoothLocal);
                 smoothLocal = smoothInQueue_.DeQue<float>();
                 lastExpertIdx = expertIdx;
             }
@@ -229,8 +229,8 @@ __aicore__ inline void MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>
         this->xCopyInQueue_.FreeTensor(xLocal);
     }
     smoothInQueue_.FreeTensor(smoothLocal);
-    this->expandDstToSrcRowQueue_.EnQue(sortedRowIdx);
-    this->expandedExpertIdxCopyOutQueue_.EnQue(expandedExpertIdx);
+    this->expandDstToSrcRowQueue_.enqueue(sortedRowIdx);
+    this->expandedExpertIdxCopyOutQueue_.enqueue(expandedExpertIdx);
 }
 
 template <typename T, const int COPYOUTTYPE, const int SMOOTHTYPE>
@@ -248,7 +248,7 @@ __aicore__ inline void MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>
 
     if constexpr (SMOOTHTYPE == SCALE_1H) {
         DataCopyPad(smoothLocal, quantSmoothGm_, smoothCopyParams, {false, 0, 0, 0});
-        smoothInQueue_.EnQue(smoothLocal);
+        smoothInQueue_.enqueue(smoothLocal);
         smoothLocal = smoothInQueue_.DeQue<float>();
     }
 
@@ -259,7 +259,7 @@ __aicore__ inline void MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>
         } else {
             DataCopyPad(xLocal[colsAlign_], this->xGm_[row * this->cols_], dataXCopyParams, {false, 0, 0, 0});
         }
-        xCopyInQueue_.EnQue<T>(xLocal);
+        xCopyInQueue_.enqueue<T>(xLocal);
         ComputeQuant(smoothLocal);
 
         LocalTensor<float> quantScaleLocal = scaleOutQueue_.DeQue<float>();
@@ -280,7 +280,7 @@ __aicore__ inline void MoeCustomFullLoadDynamicQuant<T, COPYOUTTYPE, SMOOTHTYPE>
     }
 
     smoothInQueue_.FreeTensor(smoothLocal);
-    this->expandedRowIdxCopyOutQueue_.EnQue(expandedRowIdx);
+    this->expandedRowIdxCopyOutQueue_.enqueue(expandedRowIdx);
 }
 
 template <typename T, const int COPYOUTTYPE, const int SMOOTHTYPE>

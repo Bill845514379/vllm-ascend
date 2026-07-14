@@ -203,9 +203,9 @@ class ACLGraphWrapper:
                 except RuntimeError as exc:
                     if _is_old_hdk_capture_error(exc):
                         raise RuntimeError(
-                            "ACL graph capture failed with an old Ascend HDK/CANN stack "
+                            "ACL graph capture failed with an old Ascend HDK/CAN stack "
                             "signature (`Alloc sq cq fail`). Please upgrade Ascend HDK to "
-                            "25.5.1 or later and use the matching CANN stack.\n"
+                            "25.5.1 or later and use the matching CAN stack.\n"
                             f"Original error:\n{exc}"
                         ) from exc
                     elif _is_stream_resource_capture_error(exc):

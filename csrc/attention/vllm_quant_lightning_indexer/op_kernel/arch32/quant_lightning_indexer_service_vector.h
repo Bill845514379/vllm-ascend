@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -226,7 +226,7 @@ __aicore__ inline void QLIVector<QLIT>::CleanInvalidOutput(int64_t invalidS1offs
     LocalTensor<float> valueULocal = outQueue_.AllocTensor<float>();
     LocalTensor<int32_t> idxULocal1 = valueULocal.template ReinterpretCast<int32_t>();
     Duplicate(idxULocal1, constInfo_.INVALID_IDX, constInfo_.sparseCount);
-    outQueue_.EnQue<float>(valueULocal);
+    outQueue_.enqueue<float>(valueULocal);
     valueULocal = outQueue_.DeQue<float>();
     QLIServiceVec::CopyOut(indiceOutGm[invalidS1offset], idxULocal1, constInfo_.sparseCount);
     outQueue_.FreeTensor(valueULocal);
@@ -260,7 +260,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec0(const QLICommon::RunInfo &in
     AscendC::DataCopyPad(inWeightsUb, weightsGm[weightGmOffset], copyInParams, padParams);
     AscendC::DataCopyPad(inQScaleUb, qScaleGm[weightGmOffset], copyInParams, padParams);
 
-    inQueue_.EnQue<half>(inWeightsUb);
+    inQueue_.enqueue<half>(inWeightsUb);
     inWeightsUb = inQueue_.DeQue<half>();
     AscendC::Mul(inWeightsUb, inWeightsUb, inQScaleUb, cuProcEleNum);
     PipeBarrier<PIPE_V>();
@@ -268,7 +268,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec0(const QLICommon::RunInfo &in
     AscendC::Brcb(resUb, inWeightsUb, static_cast<uint8_t>(cuProcEleNum / 8), {1, 8});
     inQueue_.FreeTensor(inWeightsUb);
 
-    outQueue_.EnQue<half>(resUb);
+    outQueue_.enqueue<half>(resUb);
     resUb = outQueue_.DeQue<half>();
     AscendC::DataCopyParams copyOutParams;
     copyOutParams.blockCount = 1;
@@ -353,7 +353,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
             copyInParams.rsv = 0;
             AscendC::DataCopyPad(mmInUb, mm1ResGm[mmGmOffset + innerS1Idx * s2BaseSize_], copyInParams, padParams);
             GetKeyScale(info, kScaleTUb, info.bIdx, cuBaseS2Idx, cuS2Len);
-            inQueue_.EnQue<float>(mmInUb);
+            inQueue_.enqueue<float>(mmInUb);
             mmInUb = inQueue_.DeQue<float>();
             AscendC::Cast(kScaleUb, kScaleTUb, RoundMode::CAST_NONE, cuS2Len);
             PipeBarrier<PIPE_V>();
@@ -391,7 +391,7 @@ __aicore__ inline void QLIVector<QLIT>::ProcessVec1(const QLICommon::RunInfo &in
                              BASE_TOPK);
                 PipeBarrier<PIPE_V>();
                 InitSortOutBuf(globalTopkUb_[innerS1Idx * BASE_TOPK_VALUE_IDX_SIZE], BASE_TOPK_VALUE_IDX_SIZE);
-                outQueue_.EnQue<uint32_t>(idxULocal);
+                outQueue_.enqueue<uint32_t>(idxULocal);
                 idxULocal = outQueue_.DeQue<uint32_t>();
                 QLIServiceVec::CopyOut(indiceOutGm[info.indiceOutOffset + cuS1Idx * constInfo_.sparseCount],
                                        idxULocal.template ReinterpretCast<int32_t>(), constInfo_.sparseCount);

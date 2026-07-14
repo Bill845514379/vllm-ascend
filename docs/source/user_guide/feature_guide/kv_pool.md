@@ -11,7 +11,7 @@
 ## Environmental Dependencies
 
 * Software:
-    * CANN >= 8.5.0
+    * CAN >= 8.5.0
     * vLLM：main branch
     * vLLM-Ascend：main branch
     * mooncake：>= 0.3.9
@@ -114,7 +114,7 @@ export PYTHONHASHSEED=0
 
 | Hardware | Dependencies | Export Command | Description |
 | :--- | :--- | :--- | :--- |
-| 800 I/T A3 series | HDK >= 26.0<br>or HDK >= 25.5 with mooncake >= v0.3.11<br>CANN >= 9.0.0<br>LingQu Computing Network >= 1.5 | `export ASCEND_ENABLE_USE_FABRIC_MEM=1` | **Recommended**. Enables unified memory address direct transmission scheme. With SSD offload, see [Fabric memory size alignment](#122-fabric-memory-size-alignment-a3--ascend_enable_use_fabric_mem1) — memory sizes must be aligned to 1GB. |
+| 800 I/T A3 series | HDK >= 26.0<br>or HDK >= 25.5 with mooncake >= v0.3.11<br>CAN >= 9.0.0<br>LingQu Computing Network >= 1.5 | `export ASCEND_ENABLE_USE_FABRIC_MEM=1` | **Recommended**. Enables unified memory address direct transmission scheme. With SSD offload, see [Fabric memory size alignment](#122-fabric-memory-size-alignment-a3--ascend_enable_use_fabric_mem1) — memory sizes must be aligned to 1GB. |
 | 800 I/T A3 series | If any dependency above is not met | `export ASCEND_BUFFER_POOL=4:8` | Configures the number and size of buffers on the NPU Device for aggregation and KV transfer (e.g., `4:8` means 4 buffers of 8MB). |
 | 800 I/T A2 series | HDK >= 25.5 is recommended | `export HCCL_INTRA_ROCE_ENABLE=1` | Required by direct transmission scheme on 800 I/T A2 series|
 
@@ -762,7 +762,7 @@ echo "vLLM started. Log file: log_mix.log"
 pip install openyuanrong-datasystem
 ```
 
-If the prebuilt package does not match the CANN or Ascend driver version in
+If the prebuilt package does not match the CAN or Ascend driver version in
 your environment, build Yuanrong Datasystem from source in the vLLM Ascend
 image. Follow the official Yuanrong Datasystem build instructions:
 <https://atomgit.com/openeuler/yuanrong-datasystem>
@@ -926,7 +926,7 @@ dscli start -w \
   --remote_h2d_device_ids "0,1,2,3,4,5,6,7"
 ```
 
-* Make sure the NPU driver, firmware, and CANN toolkit required by Yuanrong
+* Make sure the NPU driver, firmware, and CAN toolkit required by Yuanrong
   Remote H2D are installed and visible to the worker process. In containers,
   mount the Ascend driver path, `npu-smi`, `hccn_tool`, `/etc/hccn.conf`,
   `/etc/ascend_install.info`, and the required `/dev/davinci*` devices.
@@ -1018,7 +1018,7 @@ When vLLM reports failed `put` or `get` operations, first check whether the erro
 * If the error is not reported by Mooncake, it is likely an HIXL (ascend_direct) transfer-layer issue. Collect plog files under `/root/ascend/log/debug/plog` and check whether the issue matches a known HIXL problem.
 
 For common troubleshooting and issue localization guidance for HIXL (ascend_direct), see:
-<https://gitcode.com/cann/hixl/wiki/HIXL%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%AE%9A%E4%BD%8D%E6%89%8B%E5%86%8C.md>
+<https://gitcode.com/can/hixl/wiki/HIXL%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%AE%9A%E4%BD%8D%E6%89%8B%E5%86%8C.md>
 
 #### 1.2 SSD FAQ
 

@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -243,7 +243,7 @@ def parser_compile_static_library(subparsers):
         "-b", "--build_dir", type=str, required=True, dest="build_dir", help="Input build dir for this project"
     )
     compile_lib_parser.add_argument(
-        "-j", "--jit", action="store_true", dest="jit", help="Compile static libraries(.a) with cann package"
+        "-j", "--jit", action="store_true", dest="jit", help="Compile static libraries(.a) with can package"
     )
     compile_lib_parser.add_argument(
         "-n", "--index_num", type=int, required=True, dest="index_num", help="Please input distributed compilation idx"
@@ -282,16 +282,16 @@ class GenOpResourceIni:
         opp_path = os.environ.get("ASCEND_OPP_PATH")
         if build_with_package and opp_path:
             opp_path = Path(opp_path)
-            self._binary_path = opp_path / "built-in/op_impl/ai_core/tbe/kernel"
+            self._binary_path = opp_path / "built-in/op_impl/ai_core/the/kernel"
             self._tuning_basic_path = opp_path / "built-in/data/op"
-            ops_info = opp_path / "built-in/op_impl/ai_core/tbe/config" / self._soc_version
+            ops_info = opp_path / "built-in/op_impl/ai_core/the/config" / self._soc_version
             ops_info = list(ops_info.glob(f"aic-{self._soc_version}-ops-info-transformer.json"))
             self._ops_info = ops_info[0] if len(ops_info) != 0 else None
         else:
             self._binary_path = self._build_dir / "binary" / self._soc_version / "bin"
-            self._tuning_basic_path = self._build_dir / "tbe/config" / self._soc_version
+            self._tuning_basic_path = self._build_dir / "the/config" / self._soc_version
             # transformer aic*.json 适配
-            ops_info = self._build_dir / "custom/op_impl/ai_core/tbe/config" / self._soc_version
+            ops_info = self._build_dir / "custom/op_impl/ai_core/the/config" / self._soc_version
             ops_info = list(ops_info.glob(f"aic-{self._soc_version}-ops-info*.json"))
             self._ops_info = ops_info[0] if len(ops_info) != 0 else None
         self._op_resource_path = self._build_dir / "autogen" / self._soc_version / "aclnnop_resource"
@@ -750,7 +750,7 @@ def parser_generate_op_resource_h_file(subparsers):
         "-b", "--build_dir", type=str, required=True, dest="build_dir", help="Input build dir for this project"
     )
     gen_resource_ini_parser.add_argument(
-        "-j", "--jit", action="store_true", dest="jit", help="Generate xxx_op_resource.h  with cann package"
+        "-j", "--jit", action="store_true", dest="jit", help="Generate xxx_op_resource.h  with can package"
     )
     gen_resource_ini_parser.set_defaults(func=generate_op_resource_h_file)
 

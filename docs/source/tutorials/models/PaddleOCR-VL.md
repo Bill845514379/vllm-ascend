@@ -148,7 +148,7 @@ Startup Command:
 
     - Only `float16` dtype is supported.
     - The `--max_model_len` option is added to prevent errors when generating the attention operator mask.
-    - Graph compilation (`--compilation-config`) requires **CANN version >= 9.0.0**. If your CANN version is lower, please revert to eager mode by replacing the `--compilation-config` argument with `--enforce-eager`.
+    - Graph compilation (`--compilation-config`) requires **CAN version >= 9.0.0**. If your CAN version is lower, please revert to eager mode by replacing the `--compilation-config` argument with `--enforce-eager`.
     - The `fuse_norm_quant` option in `--additional_config` is disabled (`false`) because it is not supported by the graph compilation on this hardware. Keep this setting unchanged.
 
 Key Parameter Descriptions:
@@ -181,7 +181,7 @@ In the above example, we demonstrated how to use vLLM to infer the PaddleOCR-VL-
 
     The A2 series device supports inference using the PaddlePaddle framework.
 
-    1. Pull the PaddlePaddle-compatible CANN image
+    1. Pull the PaddlePaddle-compatible CAN image
 
         ```bash
         docker pull ccr-2vdh3abv-pub.cnc.bj.baidubce.com/device/paddle-npu:cann800-ubuntu20-npu-910b-base-aarch64-gcc84
@@ -343,7 +343,7 @@ PaddleOCR-VL is a lightweight model that runs on a single NPU. The key tuning pa
 | Scenario | Hardware | *Total NPUs | Weight Version | Key Considerations |
 |----------|----------|------------|---------------|-------------------|
 | High Throughput | A2 series | 1 | PaddleOCR-VL-0.9B | - |
-| High Throughput | Atlas 300 inference products | 1 | PaddleOCR-VL-0.9B | Graph compilation requires **CANN >= 9.0.0** |
+| High Throughput | Atlas 300 inference products | 1 | PaddleOCR-VL-0.9B | Graph compilation requires **CAN >= 9.0.0** |
 
 > `*Total NPUs` indicates the total number of NPUs used across all nodes.
 
@@ -360,7 +360,7 @@ PaddleOCR-VL is a lightweight model that runs on a single NPU. The key tuning pa
 
 #### 9.2.1 General Tuning Reference
 
-For performance tuning, please refer to the [Public Performance Tuning Documentation](../../developer_guide/performance_and_debug/optimization_and_tuning.md) for general tuning methods, including OS optimization (jemalloc, tcmalloc), `torch_npu` optimization (memory and scheduling), and CANN optimization.
+For performance tuning, please refer to the [Public Performance Tuning Documentation](../../developer_guide/performance_and_debug/optimization_and_tuning.md) for general tuning methods, including OS optimization (jemalloc, tcmalloc), `torch_npu` optimization (memory and scheduling), and CAN optimization.
 
 Please refer to the [Feature Guide](../../user_guide/support_matrix/feature_matrix.md) for detailed feature descriptions.
 
@@ -370,7 +370,7 @@ For common environment, installation, and general parameter issues, please refer
 
 - **Q: What are the deployment requirements for Atlas 300 inference products?**
 
-  A: On Atlas 300 inference products, only `float16` dtype is supported. Graph compilation (`--compilation-config`) requires **CANN version >= 9.0.0**; if your CANN version is lower, use `--enforce-eager` instead.
+  A: On Atlas 300 inference products, only `float16` dtype is supported. Graph compilation (`--compilation-config`) requires **CAN version >= 9.0.0**; if your CAN version is lower, use `--enforce-eager` instead.
 
 - **Q: What should I do if I encounter dependency conflicts during installation on Atlas 300 inference products?**
 

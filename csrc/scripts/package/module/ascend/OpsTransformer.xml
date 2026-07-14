@@ -7,12 +7,12 @@
         <path value="$(TARGET_ENV)/include/aclnnop"/>
     </dir_info>
     <file_info value="opapi_transformer_lib" copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe/op_api/lib/linux/$(ARCH)/"
+        dst_path="built-in/op_impl/ai_core/the/op_api/lib/linux/$(ARCH)/"
         install_path="$(TARGET_ENV)/lib64/">
         <file value="libopapi_transformer.so" install_mod="550"/>
     </file_info>
     <file_info copy_type="delivery" src_path=""
-        dst_path="built-in/op_impl/ai_core/tbe/op_api/include"
+        dst_path="built-in/op_impl/ai_core/the/op_api/include"
         install_path="$(TARGET_ENV)/include/" install_type="all">
         <file value="aclnnop" install_mod="550"/>
     </file_info>

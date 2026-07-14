@@ -144,7 +144,7 @@ private:
 
         // Load A_log.
         DataCopyPad(tmpALog, aLogGm_, paramCopyParams, paramPadParams);
-        aLogInQue_.template EnQue<ParamDtype>(tmpALog);
+        aLogInQue_.template enqueue<ParamDtype>(tmpALog);
         tmpALog = aLogInQue_.template DeQue<ParamDtype>();
 
         if constexpr (std::is_same<ParamDtype, float>()) {
@@ -162,14 +162,14 @@ private:
 
         aLogInQue_.FreeTensor(tmpALog);
 
-        negExpInQue_.template EnQue<float>(dtBiasTensor_);
+        negExpInQue_.template enqueue<float>(dtBiasTensor_);
         dtBiasTensor_ = negExpInQue_.template DeQue<float>();
 
         // Load dt_bias.
         LocalTensor<ParamDtype> tmpDtBias = dtBiasInQue_.template AllocTensor<ParamDtype>();
         dtBiasPreloaded_ = dtBiasPreloadQue_.template AllocTensor<float>();
         DataCopyPad(tmpDtBias, dtBiasGm_, paramCopyParams, paramPadParams);
-        dtBiasInQue_.template EnQue<ParamDtype>(tmpDtBias);
+        dtBiasInQue_.template enqueue<ParamDtype>(tmpDtBias);
         tmpDtBias = dtBiasInQue_.template DeQue<ParamDtype>();
         if constexpr (std::is_same<ParamDtype, float>()) {
             Adds(dtBiasPreloaded_, tmpDtBias, 0.0f, numHeads_);
@@ -178,7 +178,7 @@ private:
         }
         PipeBarrier<PIPE_V>();
         dtBiasInQue_.FreeTensor(tmpDtBias);
-        dtBiasPreloadQue_.template EnQue<float>(dtBiasPreloaded_);
+        dtBiasPreloadQue_.template enqueue<float>(dtBiasPreloaded_);
         dtBiasPreloaded_ = dtBiasPreloadQue_.template DeQue<float>();
 
         // Replicate to multi-row buffers (skip for single-row kernels).
@@ -230,8 +230,8 @@ private:
             }
         }
 
-        aInQue_.template EnQue<InDtype>(aLocal);
-        bInQue_.template EnQue<InDtype>(bLocal);
+        aInQue_.template enqueue<InDtype>(aLocal);
+        bInQue_.template enqueue<InDtype>(bLocal);
         aLocal = aInQue_.template DeQue<InDtype>();
         bLocal = bInQue_.template DeQue<InDtype>();
 
@@ -314,8 +314,8 @@ private:
         aInQue_.FreeTensor(aLocal);
         bInQue_.FreeTensor(bLocal);
 
-        gOutQue_.template EnQue<float>(gLocal);
-        betaOutQue_.template EnQue<InDtype>(betaLocal);
+        gOutQue_.template enqueue<float>(gLocal);
+        betaOutQue_.template enqueue<InDtype>(betaLocal);
 
         // MTE3: Write output.
         gLocal    = gOutQue_.template DeQue<float>();

@@ -293,7 +293,7 @@ Signed-off-by: Your Name <your.email@example.com>
 **Good Examples:**
 
 ```txt
-feat(npu): add flash attention support for Ascend CANN
+feat(npu): add flash attention support for Ascend CAN
 
 - Implements FlashAttention-2 kernel for NPU backend
 - Reduces memory usage by 30% compared to baseline

@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -11,7 +11,7 @@
 """
 版本兼容性检查
 
-检查当前代码仓与基础 CANN 包间的兼容性.
+检查当前代码仓与基础 CAN 包间的兼容性.
 """
 
 import argparse
@@ -26,8 +26,8 @@ class VersionChecker:
         parser = argparse.ArgumentParser(description="Check Version Compatible", epilog="Best Regards!")
         sub_parser = parser.add_subparsers(help="Sub-Command")
         # 参数注册
-        parser.add_argument("--cann_path", required=True, nargs=1, type=str, help="CANN install path")
-        parser.add_argument("--cann_package_name", required=True, nargs=1, type=str, help="CANN package name")
+        parser.add_argument("--cann_path", required=True, nargs=1, type=str, help="CAN install path")
+        parser.add_argument("--cann_package_name", required=True, nargs=1, type=str, help="CAN package name")
         # 子命令行(Check)
         p_chk = sub_parser.add_parser("check_code_compatible", help="Check Version Compatible.")
         p_chk.add_argument(
@@ -42,10 +42,10 @@ class VersionChecker:
         # 基本合法性检查, 版本号获取
         cann_version_info_file = Path(args.cann_path[0], args.cann_package_name[0], "version.info").absolute()
         if not cann_version_info_file.exists():
-            raise ValueError(f"CANN version info file({cann_version_info_file}) not exist.")
+            raise ValueError(f"CAN version info file({cann_version_info_file}) not exist.")
         ret, cann_version = cls._get_version_str(file=cann_version_info_file)
         if not ret:
-            raise ValueError(f"Can't get version from CANN version info file({cann_version_info_file}).")
+            raise ValueError(f"Can't get version from CAN version info file({cann_version_info_file}).")
         rst = args.func(cann_version, args)
         return rst
 
@@ -63,8 +63,8 @@ class VersionChecker:
         if cann_sub_version != code_sub_version:
             raise ValueError(
                 f"The version number of the current code is {code_sub_version}, "
-                f"and the version number of the cann package used is {cann_sub_version}. "
-                f"Please install version {code_sub_version} of the cann package."
+                f"and the version number of the can package used is {cann_sub_version}. "
+                f"Please install version {code_sub_version} of the can package."
             )
         return cann_sub_version
 

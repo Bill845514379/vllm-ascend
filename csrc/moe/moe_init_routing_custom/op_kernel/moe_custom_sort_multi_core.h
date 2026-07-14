@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -85,7 +85,7 @@ __aicore__ inline void MoeSortMultiCore::VBSCopyIn(int64_t progress, int64_t siz
     int64_t startValue = this->blockIdx * this->vbsTilingData->perCoreElements + inOffset;
     SetWaitFlag<HardEvent::MTE3_S>(HardEvent::MTE3_S);
     ArithProgression<int32_t>(rowIdxLocal, startValue, 1, size);
-    sortDataCopyInQueue.EnQue(inLocal);
+    sortDataCopyInQueue.enqueue(inLocal);
 }
 
 __aicore__ inline void MoeSortMultiCore::UBSortCompute(int64_t progress, int64_t size, int64_t sortNum)
@@ -127,7 +127,7 @@ __aicore__ inline void MoeSortMultiCore::UBSortCompute(int64_t progress, int64_t
     sourceRowLocal = inLocal[sortNum].ReinterpretCast<uint32_t>();
     Sort<float, true>(outLocal, concatLocal, sourceRowLocal, sortedLocal, sortNum / ONE_REPEAT_SORT_NUM);
 
-    sortDataCopyOutQueue.EnQue<float>(outLocal);
+    sortDataCopyOutQueue.enqueue<float>(outLocal);
     sortDataCopyInQueue.FreeTensor(inLocal);
 }
 

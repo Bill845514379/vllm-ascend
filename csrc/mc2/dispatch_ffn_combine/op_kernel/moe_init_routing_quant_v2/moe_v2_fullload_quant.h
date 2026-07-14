@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -86,7 +86,7 @@ __aicore__ inline void MoeV2FullLoadQuant<T>::Compute(int64_t xLocalLength) {
     AscendC::PipeBarrier<PIPE_V>();
     Cast(outLocal, inLocal, RoundMode::CAST_RINT, elements);
   }
-  inputXCopyOutQueue.EnQue(outLocal);
+  inputXCopyOutQueue.enqueue(outLocal);
   xCopyInQueue.FreeTensor(inLocal);
   floatQueue.FreeTensor(floatLocal);
   halfQueue.FreeTensor(halfLocal);
@@ -106,7 +106,7 @@ __aicore__ inline void MoeV2FullLoadQuant<T>::CopyOutX() {
                                     static_cast<uint32_t>(this->cols * sizeof(T)), 0, dstStride, 0};
   DataCopyPadExtParams<T> dataXCopyPadParams{false, 0, 0, 0};
   DataCopyPad(xLocal, xGm[startXRow * this->cols], dataXCopyParams, dataXCopyPadParams);
-  xCopyInQueue.EnQue(xLocal);
+  xCopyInQueue.enqueue(xLocal);
   Compute(endXRow - startXRow + 1);
   LocalTensor<int8_t> outLocal = inputXCopyOutQueue.DeQue<int8_t>();
   int64_t k = 0;

@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -89,7 +89,7 @@ private:
     {
         LocalTensor<T> xLocalIn = inRowsQue.template AllocTensor<T>();
         DataCopyExStride(xLocalIn, this->xGm[gmOffset], this->numLastDim, rowCount, this->ubAligned);
-        inRowsQue.EnQue(xLocalIn);
+        inRowsQue.enqueue(xLocalIn);
     }
 
     __aicore__ inline void CopyOutY(int32_t gmOffset, int32_t rowCount, int32_t elementCount)
@@ -181,7 +181,7 @@ private:
         LocalTensor<T_Y> outQuant01 = zLocalFp32.ReinterpretCast<T_Y>();
         doQuant1withFlag(scaleLocal, xLocalFp32, outQuant01, nums, elementCount);
         doQuant2withFlag(scaleLocal, xLocalFp32, outQuant01, nums, elementCount);
-        outRowsQue.EnQue(zLocalFp32);
+        outRowsQue.enqueue(zLocalFp32);
     }
 
     __aicore__ inline void doQuant1withFlag(

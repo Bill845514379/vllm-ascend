@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -115,7 +115,7 @@ public:
             if (this->oldDouble || (this->outQuant2Flag == 1)) {
                 scalesTensor.SetValue(ELEM_PER_BLK_FP32, 1 / this->localMax2);
             }
-            scalesQue.EnQue(scalesTensor);
+            scalesQue.enqueue(scalesTensor);
             CopyOutScale(rowIdx);
 
             baseGmOffset += this->numLastDim;
@@ -138,7 +138,7 @@ private:
             auto y2Local = y12Local[this->lastDimSliceLen];
             RoundFloat2IntQuant<T_Y>(y2Local, yLocalFp32, elementCount);
         }
-        outRowQue.template EnQue<T_Y>(y12Local);
+        outRowQue.template enqueue<T_Y>(y12Local);
     }
 
     __aicore__ inline void CopyOutQuant(int32_t baseGmOffset, int32_t rowGmOffset, int32_t elementCount)
@@ -172,7 +172,7 @@ private:
     {
         LocalTensor<float> smoothYLocalIn = inRowsQue.template AllocTensor<float>();
         DataCopyEx(smoothYLocalIn, this->workspaceGm[workspaceOffset + rowGmOffset], elementCount);
-        inRowsQue.EnQue(smoothYLocalIn);
+        inRowsQue.enqueue(smoothYLocalIn);
         LocalTensor<float> smoothYLocal = inRowsQue.template DeQue<float>();
         Muls(dstLocal, smoothYLocal, scaleNum, elementCount);
         PipeBarrier<PIPE_V>();
@@ -192,7 +192,7 @@ private:
         LocalTensor<float> yLocalFp32 = yBufFp32.Get<float>();
         LocalTensor<float> xLocalIn = inRowsQue.template AllocTensor<float>();
         DataCopyEx(xLocalIn, this->workspaceGm[rowGmOffset], elementCount);
-        inRowsQue.EnQue(xLocalIn);
+        inRowsQue.enqueue(xLocalIn);
         LocalTensor<float> xLocal = inRowsQue.template DeQue<float>();
         Muls(yLocalFp32, xLocal, rstdLocalTemp, elementCount);
         PipeBarrier<PIPE_V>();
@@ -204,7 +204,7 @@ private:
         LocalTensor<float> zLocalFp32 = zBufFp32.Get<float>();
         LocalTensor<T> gammaLocalIn = inRowsQue.template AllocTensor<T>();
         DataCopyEx(gammaLocalIn, this->gammaGm[rowGmOffset], elementCount);
-        inRowsQue.EnQue(gammaLocalIn);
+        inRowsQue.enqueue(gammaLocalIn);
         LocalTensor<T> gammaLocal = inRowsQue.template DeQue<T>();
         Cast(zLocalFp32, gammaLocal, RoundMode::CAST_NONE, elementCount); // xLocalFp32 <- gammaFp32
         PipeBarrier<PIPE_V>();
@@ -216,7 +216,7 @@ private:
         LocalTensor<float> zLocalFp32 = zBufFp32.Get<float>();
         LocalTensor<T> betaLocalIn = inRowsQue.template AllocTensor<T>();
         DataCopyEx(betaLocalIn, this->betaGm[rowGmOffset], elementCount);
-        inRowsQue.EnQue(betaLocalIn);
+        inRowsQue.enqueue(betaLocalIn);
         LocalTensor<T> betaLocal = inRowsQue.template DeQue<T>();
         Cast(zLocalFp32, betaLocalIn, RoundMode::CAST_NONE, elementCount); // xLocalFp32 <- betaFp32
         PipeBarrier<PIPE_V>();
@@ -237,7 +237,7 @@ private:
                 LocalTensor<T> smooth2In = smooth12CopyIn[this->lastDimSliceLen];
                 DataCopyEx(smooth2In, this->smooth2Gm[rowGmOffset], elementCount);
             }
-            inRowsQue.EnQue(smooth12CopyIn);
+            inRowsQue.enqueue(smooth12CopyIn);
         }
     }
 
@@ -328,7 +328,7 @@ private:
     {
         LocalTensor<float> ySmoothLocal = tmpOutQue.template AllocTensor<float>();
         Adds(ySmoothLocal, smoothNormTensor, ZERO, elementCount);
-        tmpOutQue.template EnQue<float>(ySmoothLocal);
+        tmpOutQue.template enqueue<float>(ySmoothLocal);
         LocalTensor<float> ySmooth = tmpOutQue.template DeQue<float>();
         DataCopyEx(this->workspaceGm[workspaceOffset + rowGmOffset], ySmooth, elementCount);
         tmpOutQue.FreeTensor(ySmooth);
@@ -338,7 +338,7 @@ private:
     {
         LocalTensor<T> xLocalIn = inRowsQue.template AllocTensor<T>();
         DataCopyEx(xLocalIn[0], this->xGm[baseGmOffset + rowGmOffset], elementCount);
-        inRowsQue.EnQue(xLocalIn);
+        inRowsQue.enqueue(xLocalIn);
     }
 
     __aicore__ inline void CopyOutX(int32_t baseGmOffset, int32_t rowGmOffset, int32_t elementCount)

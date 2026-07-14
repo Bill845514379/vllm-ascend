@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -113,7 +113,7 @@ __aicore__ inline void GMMA8W4PostProcess::customDataCopyIn(uint32_t outLoopIdx,
     DataCopyPadExtParams<half> padParams_0{false, 0, 0, 0};
     DataCopyPad(mmLocal_fp16[processNum], mmOutGM[vecConfig.curOffset * DOUBLE_ROW], copyParams_0, padParams_0);
 
-    mmOutQueue.EnQue(mmLocal_fp16);
+    mmOutQueue.enqueue(mmLocal_fp16);
     mmLocal_fp16 = mmOutQueue.DeQue<half>();
     // 1. fp16 -> fp32
     Cast(mmLocal_fp32, mmLocal_fp16[processNum], RoundMode::CAST_NONE, processNum);
@@ -155,7 +155,7 @@ __aicore__ inline void GMMA8W4PostProcess::MergeAuxiliaryMatrix(uint32_t loopIdx
         gmmSwiglu->tokenLen);
     vecConfig.nextUpadteInterVal--;
     PipeBarrier<PIPE_V>();
-    weightAuxiliaryMatrixInQueue.EnQue(weightAuxiliaryMatrixLocal);
+    weightAuxiliaryMatrixInQueue.enqueue(weightAuxiliaryMatrixLocal);
 }
 
 __aicore__ inline void GMMA8W4PostProcess::MulPertokenScale(uint32_t loopIdx, VecConfig &vecConfig,
@@ -219,8 +219,8 @@ __aicore__ inline void GMMA8W4PostProcess::Quant(uint32_t loopIdx, VecConfig &ve
     int32_t tempCount = static_cast<int32_t>(halfTokenLen);
     LocalTensor<int8_t> castSpace = reduceWorkspace.Get<int8_t>(UB_BLOCK_UNIT_SIZE);
     CastFp32ToInt8Template(quantLocal, mmLocal_fp32, castSpace, dstTempOffset, srcTempOffset, tempCount);
-    mmOutQueue.EnQue(mmLocal_fp32);
-    quantOutQueue.EnQue(quantLocal);
+    mmOutQueue.enqueue(mmLocal_fp32);
+    quantOutQueue.enqueue(quantLocal);
 }
 
 __aicore__ inline void GMMA8W4PostProcess::UpdateVecConfig(uint32_t blockIdx, VecConfig &vecConfig,
@@ -279,7 +279,7 @@ __aicore__ inline void GMMA8W4PostProcess::PreLoadAuxiliaryMatrix(VecConfig &vec
     DataCopyPadExtParams<float> padParams{false, 0, 0, 0};
     DataCopyPad(weightAuxiliaryMatrixLocal, weightAuxiliaryMatrixGM[vecConfig.curGroupIdx * gmmSwiglu->tokenLen],
                 copyAuxiliaryMatrixParams, padParams);
-    weightAuxiliaryMatrixInQueue.EnQue(weightAuxiliaryMatrixLocal);
+    weightAuxiliaryMatrixInQueue.enqueue(weightAuxiliaryMatrixLocal);
 }
 
 __aicore__ inline void GMMA8W4PostProcess::UpdateAuxiliaryMatrix(uint32_t loopIdx, VecConfig &vecConfig)
@@ -301,7 +301,7 @@ __aicore__ inline void GMMA8W4PostProcess::UpdateAuxiliaryMatrix(uint32_t loopId
         DataCopyPadExtParams<float> padParams{false, 0, 0, 0};
         DataCopyPad(weightAuxiliaryMatrixLocal, weightAuxiliaryMatrixGM[vecConfig.curGroupIdx * gmmSwiglu->tokenLen],
                     copyParams, padParams);
-        weightAuxiliaryMatrixInQueue.EnQue(weightAuxiliaryMatrixLocal);
+        weightAuxiliaryMatrixInQueue.enqueue(weightAuxiliaryMatrixLocal);
     }
 }
 
@@ -322,10 +322,10 @@ __aicore__ inline void GMMA8W4PostProcess::Process(WorkSpaceSplitConfig &workspa
             LocalTensor<float> quantScaleLocal = quantScaleOutQueue.AllocTensor<float>();
             LocalTensor<int8_t> quantLocal = quantOutQueue.AllocTensor<int8_t>();
 
-            mmOutQueue.EnQue(mmLocal_fp32);
-            quantScaleOutQueue.EnQue(quantScaleLocal);
-            quantOutQueue.EnQue(quantLocal);
-            weightAuxiliaryMatrixInQueue.EnQue(weightAuxiliaryMatrixLocal);
+            mmOutQueue.enqueue(mmLocal_fp32);
+            quantScaleOutQueue.enqueue(quantScaleLocal);
+            quantOutQueue.enqueue(quantLocal);
+            weightAuxiliaryMatrixInQueue.enqueue(weightAuxiliaryMatrixLocal);
             PreLoadAuxiliaryMatrix(vecConfig);
             for (uint32_t outLoopIdx = 0; outLoopIdx < vecConfig.outLoopNum; outLoopIdx++) {
                 vecConfig.innerLoopNum =
@@ -376,8 +376,8 @@ __aicore__ inline void GMMA8W4PostProcess::customDataCopyOut(VecConfig &vecConfi
 
     vecConfig.startIdx += vecConfig.innerLoopNum;
     vecConfig.startOffset = vecConfig.startIdx * gmmSwiglu->tokenLen;
-    quantOutQueue.EnQue(quantLocal);
-    quantScaleOutQueue.EnQue(quantScaleLocal);
+    quantOutQueue.enqueue(quantLocal);
+    quantScaleOutQueue.enqueue(quantScaleLocal);
 }
 
 } // namespace GROUPED_MATMUL_SWIGLU_QUANT

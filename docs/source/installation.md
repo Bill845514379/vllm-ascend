@@ -11,20 +11,20 @@ This document describes how to install vllm-ascend manually.
 
     | Software      | Supported version                | Note                                      |
     |---------------|----------------------------------|-------------------------------------------|
-    | Ascend HDK    | Refer to the documentation [CANN 9.0.0](https://www.hiascend.com/document/detail/zh/canncommercial/900/releasenote/releasenote_0000.html) | Required for CANN |
-    | CANN          | == 9.0.0                        | Required for vllm-ascend and torch-npu    |
+    | Ascend HDK    | Refer to the documentation [CAN 9.0.0](https://www.hiascend.com/document/detail/zh/canncommercial/900/releasenote/releasenote_0000.html) | Required for CAN |
+    | CAN          | == 9.0.0                        | Required for vllm-ascend and torch-npu    |
     | torch-npu     | == 2.10.0                       | Required for vllm-ascend, No need to install manually, it will be auto installed in below steps |
     | torch         | == 2.10.0                       | Required for torch-npu and vllm, No need to install manually, it will be auto installed in below steps |
     | NNAL          | == 9.0.0                        | Required for libatb.so, enables advanced tensor operations |
 
 There are two installation methods:
 
-- **Using pip**: first prepare the environment manually or via a CANN image, then install `vllm-ascend` using pip.
+- **Using pip**: first prepare the environment manually or via a CAN image, then install `vllm-ascend` using pip.
 - **Using docker**: use the `vllm-ascend` pre-built docker image directly.
 
-## Configure Ascend CANN environment
+## Configure Ascend CAN environment
 
-Before installation, you need to make sure firmware/driver, and CANN are installed correctly, refer to [Ascend Environment Setup Guide](https://www.hiascend.com/cann/download?versionId=735&ids=d806%2Ch0501%2Ch0601%2Ch0702) for more details.
+Before installation, you need to make sure firmware/driver, and CAN are installed correctly, refer to [Ascend Environment Setup Guide](https://www.hiascend.com/can/download?versionId=735&ids=d806%2Ch0501%2Ch0601%2Ch0702) for more details.
 
 ### Configure hardware environment
 
@@ -40,17 +40,17 @@ Refer to [Ascend Environment Setup Guide](https://ascend.github.io/docs/sources/
 
 === "Before using pip"
 
-    The easiest way to prepare your software environment is using CANN image directly:
+    The easiest way to prepare your software environment is using CAN image directly:
 
     !!! note
 
-        The CANN prebuilt image includes NNAL (Ascend Neural Network Acceleration Library), which provides libatb.so for advanced tensor operations. No additional installation is required when using the prebuilt image.
+        The CAN prebuilt image includes NNAL (Ascend Neural Network Acceleration Library), which provides libatb.so for advanced tensor operations. No additional installation is required when using the prebuilt image.
 
     ```bash
     # Update DEVICE according to your device (/dev/davinci[0-7])
     export DEVICE=/dev/davinci7
     # Update the vllm-ascend image
-    export IMAGE=quay.io/ascend/cann:{{ cann_image_tag }}
+    export IMAGE=quay.io/ascend/can:{{ cann_image_tag }}
     docker run --rm \
         --name vllm-ascend-env \
         --shm-size=1g \
@@ -67,9 +67,9 @@ Refer to [Ascend Environment Setup Guide](https://ascend.github.io/docs/sources/
         -it $IMAGE bash
     ```
 
-    ??? "Click here to see 'Install CANN manually'"
+    ??? "Click here to see 'Install CAN manually'"
 
-        You can also install CANN manually:
+        You can also install CAN manually:
 
         !!! warning
 
@@ -84,17 +84,17 @@ Refer to [Ascend Environment Setup Guide](https://ascend.github.io/docs/sources/
         python -m pip install --upgrade pip
         pip3 install attrs numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf scipy requests absl-py wheel typing_extensions
 
-        # Download and install the CANN package.
-        wget --header="Referer: https://www.hiascend.com/" https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%209.0.0/Ascend-cann-toolkit_9.0.0_linux-"$(uname -i)".run
+        # Download and install the CAN package.
+        wget --header="Referer: https://www.hiascend.com/" https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CAN/CAN%209.0.0/Ascend-cann-toolkit_9.0.0_linux-"$(uname -i)".run
         chmod +x ./Ascend-cann-toolkit_9.0.0_linux-"$(uname -i)".run
         ./Ascend-cann-toolkit_9.0.0_linux-"$(uname -i)".run --full
         source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
-        wget --header="Referer: https://www.hiascend.com/" https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%209.0.0/Ascend-cann-910b-ops_9.0.0_linux-"$(uname -i)".run
+        wget --header="Referer: https://www.hiascend.com/" https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CAN/CAN%209.0.0/Ascend-cann-910b-ops_9.0.0_linux-"$(uname -i)".run
         chmod +x ./Ascend-cann-910b-ops_9.0.0_linux-"$(uname -i)".run
         ./Ascend-cann-910b-ops_9.0.0_linux-"$(uname -i)".run --install
 
-        wget --header="Referer: https://www.hiascend.com/" https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%209.0.0/Ascend-cann-nnal_9.0.0_linux-"$(uname -i)".run
+        wget --header="Referer: https://www.hiascend.com/" https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CAN/CAN%209.0.0/Ascend-cann-nnal_9.0.0_linux-"$(uname -i)".run
         chmod +x ./Ascend-cann-nnal_9.0.0_linux-"$(uname -i)".run
         ./Ascend-cann-nnal_9.0.0_linux-"$(uname -i)".run --install
 

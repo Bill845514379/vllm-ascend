@@ -388,7 +388,7 @@ ENV Variables:
 NPU:
 {npu_info}
 
-CANN:
+CAN:
 {cann_info}
 """.strip()
 

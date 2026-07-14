@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -49,7 +49,7 @@ public:
                     int64_t curGFactor = (idx == tilingData->gLoop - 1) ? tilingData->tailGFactor : tilingData->gFactor;
                     groupIndexLocal = groupIndexQue.template AllocTensor<int64_t>();
                     CopyIn(groupIndexGm[idx * tilingData->gFactor], groupIndexLocal, 1, curGFactor);
-                    groupIndexQue.template EnQue(groupIndexLocal);
+                    groupIndexQue.template enqueue(groupIndexLocal);
                     groupIndexLocal = groupIndexQue.template DeQue<int64_t>();
                     if (idx == 0) {
                         VFProcessGroupIndex<int64_t, false>(groupSumLocal, groupIndexLocal, curGFactor);
@@ -123,7 +123,7 @@ public:
             if (hasTopkWeight_) {
                 topkWeightLocal = topkWeightQue.template AllocTensor<float>();
                 CopyIn(topkWeightGm[topkWeightGmBaseOffset + rowOuterIdx * tilingData->rowFactor], topkWeightLocal, 1, curRowFactor);
-                topkWeightQue.template EnQue(topkWeightLocal);
+                topkWeightQue.template enqueue(topkWeightLocal);
                 topkWeightLocal = topkWeightQue.template DeQue<float>();
             }
 
@@ -136,14 +136,14 @@ public:
                 CopyIn(
                     xGm[x0GmBaseOffset + xBaseOffset],
                     x0Local, curRowFactor, curDFactor, tilingData->d - curDFactor);
-                x0Que.template EnQue(x0Local);
+                x0Que.template enqueue(x0Local);
                 x0Local = x0Que.template DeQue<T0>();
 
                 x1Local = x1Que.template AllocTensor<T0>();
                 CopyIn(
                     xGm[x1GmBaseOffset + xBaseOffset],
                     x1Local, curRowFactor, curDFactor, tilingData->d - curDFactor);
-                x1Que.template EnQue(x1Local);
+                x1Que.template enqueue(x1Local);
                 x1Local = x1Que.template DeQue<T0>();
 
                 yLocal = yQue.template AllocTensor<T1>();
@@ -164,12 +164,12 @@ public:
                 x0Que.template FreeTensor(x0Local);
                 x1Que.template FreeTensor(x1Local);
 
-                yQue.template EnQue(yLocal);
+                yQue.template enqueue(yLocal);
                 yLocal = yQue.template DeQue<T1>();
                 CopyOut(yLocal, yGm[yGmBaseOffset + rowOuterIdx * tilingData->rowFactor * tilingData->splitD + dLoopIdx * tilingData->dFactor], curRowFactor, curDFactor, tilingData->splitD - curDFactor);
                 yQue.template FreeTensor(yLocal);
 
-                scaleQue.template EnQue(scaleLocal);
+                scaleQue.template enqueue(scaleLocal);
                 scaleLocal = scaleQue.template DeQue<T2>();
                 CopyOut<T2, AscendC::PaddingMode::Compact>(scaleLocal, scaleGm[scaleGmBaseOffset + rowOuterIdx * tilingData->rowFactor * tilingData->scaleCol + dLoopIdx * CeilDiv(tilingData->dFactor, PER_BLOCK_FP16)],
                 curRowFactor, scaleDFactor, tilingData->scaleCol - scaleDFactor);

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -448,11 +448,11 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::SendT
         if constexpr (DynamicQuant || StaticQuant) {
             xInTensor_ = xInQueue_.AllocTensor<XType>();
             DataCopy(xInTensor_, xGMTensor_[tokenIndex * axisH_], axisH_);
-            xInQueue_.EnQue(xInTensor_);
+            xInQueue_.enqueue(xInTensor_);
             xInTensor_ = xInQueue_.DeQue<XType>();
             xOutTensor_ = xOutQueue_.AllocTensor<ExpandXOutType>();
             QuantProcess(0);
-            xOutQueue_.EnQue(xOutTensor_);
+            xOutQueue_.enqueue(xOutTensor_);
 
             xOutTensor_ = xOutQueue_.DeQue<ExpandXOutType>();
             if (isShareExpertRank_) {
@@ -471,7 +471,7 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::SendT
         } else {
             xTmpTensor_ = xQueue_.AllocTensor<ExpandXOutType>();
             DataCopy(xTmpTensor_, xGMTensor_[tokenIndex * axisH_], axisH_);
-            xQueue_.EnQue(xTmpTensor_);
+            xQueue_.enqueue(xTmpTensor_);
             xTmpTensor_ = xQueue_.DeQue<ExpandXOutType>();
             if (isShareExpertRank_) {
                 if constexpr (IsNeedAllgater) {
@@ -515,12 +515,12 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::SendT
         if constexpr (DynamicQuant || StaticQuant) {
             xInTensor_ = xInQueue_.AllocTensor<XType>();
             DataCopy(xInTensor_, xGMTensor_[tokenIndex / axisK_ * axisH_], axisH_);
-            xInQueue_.EnQue(xInTensor_);
+            xInQueue_.enqueue(xInTensor_);
             xInTensor_ = xInQueue_.DeQue<XType>();
             xOutTensor_ = xOutQueue_.AllocTensor<ExpandXOutType>();
             uint32_t expertIndex = sharedExpertRankNum_ != 0 ? (dstExpertId + 1) : dstExpertId;
             QuantProcess(expertIndex);
-            xOutQueue_.EnQue(xOutTensor_);
+            xOutQueue_.enqueue(xOutTensor_);
 
             xOutTensor_ = xOutQueue_.DeQue<ExpandXOutType>();
             DataCopy(dstWinGMTensor, xOutTensor_, axisHCommu_);
@@ -528,7 +528,7 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::SendT
         } else {
             xTmpTensor_ = xQueue_.AllocTensor<ExpandXOutType>();
             DataCopy(xTmpTensor_, xGMTensor_[tokenIndex / axisK_ * axisH_], axisH_);
-            xQueue_.EnQue(xTmpTensor_);
+            xQueue_.enqueue(xTmpTensor_);
             xTmpTensor_ = xQueue_.DeQue<ExpandXOutType>();
             DataCopy(dstWinGMTensor, xTmpTensor_, axisHCommu_);
             xQueue_.FreeTensor<ExpandXOutType>(xTmpTensor_);
@@ -739,7 +739,7 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::Local
              windowInQuantTensor_[rankIndex * (expertPerSizeOnWin_ / sizeof(ExpandXOutType)) +
                                   currendTokenIndex * axisHCommu_],
              axisHCommu_);
-    xQueue_.EnQue(xTmpTensor_);
+    xQueue_.enqueue(xTmpTensor_);
     xTmpTensor_ = xQueue_.DeQue<ExpandXOutType>();
     if constexpr (DynamicQuant || StaticQuant) {
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -926,7 +926,7 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::Local
             tokGlobal.SetGlobalBuffer((__gm__ ExpandXOutType *)(wAddr + j * hCommuSize_));
             xTmpTensor_ = xQueue_.AllocTensor<ExpandXOutType>();
             DataCopy(xTmpTensor_, tokGlobal, axisHCommu_);
-            xQueue_.EnQue(xTmpTensor_);
+            xQueue_.enqueue(xTmpTensor_);
             xTmpTensor_ = xQueue_.DeQue<ExpandXOutType>();
             if constexpr (DynamicQuant || StaticQuant) {
                 AscendC::PipeBarrier<PIPE_ALL>();
@@ -1014,7 +1014,7 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::Allga
     DataCopyPadExtParams<int32_t> copyPadParams{false, 0U, 0U, 0U};
     tpTmpTensor_ = xQueue_.AllocTensor<int32_t>();
     DataCopyPad(tpTmpTensor_, tpGlobal[startExpertId_], dataCopyParams, copyPadParams);
-    xQueue_.EnQue(tpTmpTensor_);
+    xQueue_.enqueue(tpTmpTensor_);
     tpTmpTensor_ = xQueue_.DeQue<int32_t>();
     DataCopyPad(sendCountsGlobal[epWorldSize_ + startExpertId_], tpTmpTensor_, dataCopyParams);
     xQueue_.FreeTensor(tpTmpTensor_);
@@ -1028,7 +1028,7 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::Allga
         tokGlobal.SetGlobalBuffer((__gm__ ExpandXOutType *)(tpLocalWindowGM_ + (preCount + i) * hCommuSize_));
         xTmpTensor_ = xQueue_.AllocTensor<ExpandXOutType>();
         DataCopy(xTmpTensor_, tokGlobal, axisHCommu_);
-        xQueue_.EnQue(xTmpTensor_);
+        xQueue_.enqueue(xTmpTensor_);
         xTmpTensor_ = xQueue_.DeQue<ExpandXOutType>();
         expandXOutGlobal.SetGlobalBuffer(
             (__gm__ ExpandXOutType *)(expandXOutGM_ + (preCount + totalCnt_ + i) * hOutSize_));

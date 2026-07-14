@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -47,19 +47,19 @@ if(NOT DEFINED ASCEND_PYTHON_EXECUTABLE)
   set(ASCEND_PYTHON_EXECUTABLE python3 CACHE STRING "")
 endif()
 
-set(BIN_STATIC_INSTALL_DIR          packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/static)
+set(BIN_STATIC_INSTALL_DIR          packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/static)
 if (ENABLE_BUILT_IN)
-  set(ACLNN_INC_INSTALL_DIR           ops_transformer/built-in/op_impl/ai_core/tbe/op_api/include/aclnnop)
-  set(ACLNN_INC_LEVEL2_INSTALL_DIR    ops_transformer/built-in/op_impl/ai_core/tbe/op_api/include/aclnnop/level2)
-  set(ACLNN_LIB_INSTALL_DIR           ops_transformer/built-in/op_impl/ai_core/tbe/op_api/lib/linux/${CMAKE_SYSTEM_PROCESSOR})
-  set(OPS_INFO_INSTALL_DIR            ops_transformer/built-in/op_impl/ai_core/tbe/config)
-  set(IMPL_INSTALL_DIR                ops_transformer/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc)
-  set(IMPL_DYNAMIC_INSTALL_DIR        ops_transformer/built-in/op_impl/ai_core/tbe/impl/ops_transformer/dynamic)
-  set(BIN_KERNEL_INSTALL_DIR          ops_transformer/built-in/op_impl/ai_core/tbe/kernel)
-  set(BIN_KERNEL_CONFIG_INSTALL_DIR   ops_transformer/built-in/op_impl/ai_core/tbe/kernel/config)
-  set(BIN_STATIC_INSTALL_DIR          ops_transformer/built-in/op_impl/ai_core/tbe/static)
-  set(OPHOST_INC_INSTALL_PATH         ops_transformer/built-in/op_impl/ai_core/tbe/op_host/include)
-  set(OPHOST_LIB_INSTALL_PATH         ops_transformer/built-in/op_impl/ai_core/tbe/op_host/lib/linux/${CMAKE_SYSTEM_PROCESSOR})
+  set(ACLNN_INC_INSTALL_DIR           ops_transformer/built-in/op_impl/ai_core/the/op_api/include/aclnnop)
+  set(ACLNN_INC_LEVEL2_INSTALL_DIR    ops_transformer/built-in/op_impl/ai_core/the/op_api/include/aclnnop/level2)
+  set(ACLNN_LIB_INSTALL_DIR           ops_transformer/built-in/op_impl/ai_core/the/op_api/lib/linux/${CMAKE_SYSTEM_PROCESSOR})
+  set(OPS_INFO_INSTALL_DIR            ops_transformer/built-in/op_impl/ai_core/the/config)
+  set(IMPL_INSTALL_DIR                ops_transformer/built-in/op_impl/ai_core/the/impl/ops_transformer/ascendc)
+  set(IMPL_DYNAMIC_INSTALL_DIR        ops_transformer/built-in/op_impl/ai_core/the/impl/ops_transformer/dynamic)
+  set(BIN_KERNEL_INSTALL_DIR          ops_transformer/built-in/op_impl/ai_core/the/kernel)
+  set(BIN_KERNEL_CONFIG_INSTALL_DIR   ops_transformer/built-in/op_impl/ai_core/the/kernel/config)
+  set(BIN_STATIC_INSTALL_DIR          ops_transformer/built-in/op_impl/ai_core/the/static)
+  set(OPHOST_INC_INSTALL_PATH         ops_transformer/built-in/op_impl/ai_core/the/op_host/include)
+  set(OPHOST_LIB_INSTALL_PATH         ops_transformer/built-in/op_impl/ai_core/the/op_host/lib/linux/${CMAKE_SYSTEM_PROCESSOR})
   set(OPTILING_LIB_INSTALL_DIR        ${OPHOST_LIB_INSTALL_PATH})
   set(OPGRAPH_INC_INSTALL_DIR         ops_transformer/built-in/op_graph/inc)
   set(OPGRAPH_LIB_INSTALL_DIR         ops_transformer/built-in/op_graph/lib/linux/${CMAKE_SYSTEM_PROCESSOR})
@@ -67,7 +67,7 @@ if (ENABLE_BUILT_IN)
   set(COMMON_INC_INSTALL_DIR          ops_transformer/include)
   set(COMMON_LIB_INSTALL_DIR          ops_transformer/lib)
   set(VERSION_INFO_INSTALL_DIR        ops_transformer)
-  set(IMPL_INSTALL_DIR                ops_transformer/built-in/op_impl/ai_core/tbe/impl/ops_transformer)
+  set(IMPL_INSTALL_DIR                ops_transformer/built-in/op_impl/ai_core/the/impl/ops_transformer)
 endif()
 
 if (ENABLE_TEST)
@@ -83,9 +83,9 @@ set(UT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/tests/ut/framework_normal)
 
 # output path
 set(ASCEND_AUTOGEN_PATH     ${CMAKE_BINARY_DIR}/autogen)
-set(ASCEND_KERNEL_SRC_DST   ${CMAKE_BINARY_DIR}/tbe/ascendc)
-set(ASCEND_KERNEL_CONF_DST  ${CMAKE_BINARY_DIR}/tbe/config)
-set(ASCEND_GRAPH_CONF_DST   ${CMAKE_BINARY_DIR}/tbe/graph)
+set(ASCEND_KERNEL_SRC_DST   ${CMAKE_BINARY_DIR}/the/ascendc)
+set(ASCEND_KERNEL_CONF_DST  ${CMAKE_BINARY_DIR}/the/config)
+set(ASCEND_GRAPH_CONF_DST   ${CMAKE_BINARY_DIR}/the/graph)
 file(MAKE_DIRECTORY ${ASCEND_AUTOGEN_PATH})
 file(MAKE_DIRECTORY ${ASCEND_KERNEL_SRC_DST})
 file(MAKE_DIRECTORY ${ASCEND_KERNEL_CONF_DST})
@@ -125,22 +125,22 @@ set(OPAPI_INCLUDE
 
 if (NOT BUILD_OPEN_PROJECT)
   list(APPEND OPAPI_INCLUDE
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_proto/runtime
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_proto/runtime
     ${TOP_DIR}/ace/comop/inc/external
     ${TOP_DIR}/ops/ops-nn/matmul/common/op_host/op_api
-    ${TOP_DIR}/asl/ops/cann/ops/utils/inc/log/inner
-    ${TOP_DIR}/asl/ops/cann/ops/utils/inc/error
+    ${TOP_DIR}/asl/ops/can/ops/utils/inc/log/inner
+    ${TOP_DIR}/asl/ops/can/ops/utils/inc/error
     ${TOP_DIR}/ace/comop/inc/external
     ${TOP_DIR}/ace/npuruntime/inc/external
     ${TOP_DIR}/ace/npuruntime/inc/nnopbase
-    ${TOP_DIR}/asl/ops/cann/ops/mc2/communication_and_computation
+    ${TOP_DIR}/asl/ops/can/ops/mc2/communication_and_computation
     ${TOP_DIR}/ace/npuruntime/acl/inc/external/acl/error_codes
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling/runtime
-    ${TOP_DIR}/asl/ops/cann/ops/built-in
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling/runtime
+    ${TOP_DIR}/asl/ops/can/ops/built-in
     ${TOP_DIR}/ops-base/pkg_inc/op_common/op_host
     ${TOP_DIR}/ops-base/pkg_inc
     ${TOP_DIR}/ops-base/include
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_fallback
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_fallback
   )
 else()
   list(APPEND OPAPI_INCLUDE ${OPBASE_INC_DIRS})
@@ -174,30 +174,30 @@ if (NOT BUILD_OPEN_PROJECT)
   list(APPEND OP_TILING_INCLUDE
     ${TOP_DIR}/abl/msprof/inc  # codespell:ignore abl
     ${METADEF_INC_DIR}/../common/util
-    ${TOP_DIR}/asl/ops/cann/ops/utils/inc
+    ${TOP_DIR}/asl/ops/can/ops/utils/inc
     ${TOP_DIR}/ace/comop/inc
     ${TOP_DIR}/ace/comop/hccl/open_source/inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling/cube
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling/cube
     ${TOP_DIR}/ace/npuruntime/inc/external
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_api/inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_proto/runtime
-    ${TOP_DIR}/asl/ops/cann/ops/common/inc
-    ${TOP_DIR}/asl/ops/cann/ops/ops-nn/inner
-    ${TOP_DIR}/asl/ops/cann/ops/matmul
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_api/inc
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_proto/runtime
+    ${TOP_DIR}/asl/ops/can/ops/common/inc
+    ${TOP_DIR}/asl/ops/can/ops/ops-nn/inner
+    ${TOP_DIR}/asl/ops/can/ops/matmul
     ${TOP_DIR}/ace/npuruntime/acl/inc/external/acl/error_codes
-    ${TOP_DIR}/asl/ops/cann/ops/mc2/common/inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling/runtime
-    ${TOP_DIR}/asl/ops/cann/ops/built-in
+    ${TOP_DIR}/asl/ops/can/ops/mc2/common/inc
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling/runtime
+    ${TOP_DIR}/asl/ops/can/ops/built-in
 
-    ${TOP_DIR}/asl/ops/cann/ops/mc2/communication_and_computation
+    ${TOP_DIR}/asl/ops/can/ops/mc2/communication_and_computation
     ${TOP_DIR}/ops-base/pkg_inc/op_common/op_host
     ${TOP_DIR}/ops-base/pkg_inc
     ${TOP_DIR}/ops-base/include
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_fallback
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_fallback
 
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_proto/runtime
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling/device/error
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_proto/runtime
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling/device/error
     ${METADEF_DIR}
     ${RUNTIME_INC_DIR}/runtime/platform/inc
     ${METADEF_DIR}/inc/external/ge
@@ -228,38 +228,38 @@ if (NOT BUILD_OPEN_PROJECT)
     ${METADEF_INC_DIR}/../common/util
     ${TOP_DIR}/ace/comop/inc
     ${TOP_DIR}/ace/comop/hccl/open_source/inc
-    ${TOP_DIR}/asl/ops/cann/ops/utils/inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling/cube
-    ${TOP_DIR}/asl/ops/cann/ops/utils/inc/log/inner
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling
+    ${TOP_DIR}/asl/ops/can/ops/utils/inc
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling/cube
+    ${TOP_DIR}/asl/ops/can/ops/utils/inc/log/inner
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling
     ${TOP_DIR}/ace/npuruntime/inc/external
-    ${TOP_DIR}/asl/ops/cann/ops/common/inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_proto/runtime
+    ${TOP_DIR}/asl/ops/can/ops/common/inc
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_proto/runtime
     ${TOP_DIR}/tmp/host-prefix/src/host-build/atc/opcompiler/ascendc_compiler/api/kernel_tiling
-    ${TOP_DIR}/asl/ops/cann/ops/ops-nn/inner
-    ${TOP_DIR}/asl/ops/cann/ops/matmul
+    ${TOP_DIR}/asl/ops/can/ops/ops-nn/inner
+    ${TOP_DIR}/asl/ops/can/ops/matmul
     ${TOP_DIR}/ace/npuruntime/acl/inc/external/acl/error_codes
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling/runtime
-    ${TOP_DIR}/asl/ops/cann/ops/built-in
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_tiling/runtime
+    ${TOP_DIR}/asl/ops/can/ops/built-in
     ${TOP_DIR}/ops-base/pkg_inc/op_common/op_host
     ${TOP_DIR}/ops-base/pkg_inc
     ${TOP_DIR}/ops-base/include
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_fallback
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_fallback
   )
 endif()
 
 if (NOT BUILD_OPEN_PROJECT)
   list(APPEND AICPU_INCLUDE
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/aicpu/impl
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/aicpu/impl/utils
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/aicpu/impl/kernels/host/runtime/utils
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/aicpu/impl/kernels/normalized/random
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/aicpu/context/inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/aicpu/context/common/*.h
+    ${TOP_DIR}/asl/ops/can/ops/built-in/aicpu/impl
+    ${TOP_DIR}/asl/ops/can/ops/built-in/aicpu/impl/utils
+    ${TOP_DIR}/asl/ops/can/ops/built-in/aicpu/impl/kernels/host/runtime/utils
+    ${TOP_DIR}/asl/ops/can/ops/built-in/aicpu/impl/kernels/normalized/random
+    ${TOP_DIR}/asl/ops/can/ops/built-in/aicpu/context/inc
+    ${TOP_DIR}/asl/ops/can/ops/built-in/aicpu/context/common/*.h
     ${TOP_DIR}/ace/comop/inc
     ${TOP_DIR}/ops-base/include
     ${TOP_DIR}/ops-base/pkg_inc
-    ${TOP_DIR}/asl/ops/cann/ops/built-in/op_fallback
+    ${TOP_DIR}/asl/ops/can/ops/built-in/op_fallback
   )
 endif()
 

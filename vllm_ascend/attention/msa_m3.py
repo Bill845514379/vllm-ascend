@@ -9,11 +9,11 @@ from typing import Any, ClassVar
 import torch
 from torch import nn
 from torch.nn.parameter import Parameter
-from vllm.distributed import divide, get_tensor_model_parallel_world_size
 from vllm.config import CacheConfig, VllmConfig, get_current_vllm_config
 from vllm.config.cache import CacheDType
+from vllm.distributed import divide, get_tensor_model_parallel_world_size
 from vllm.forward_context import ForwardContext, get_forward_context
-from vllm.utils.torch_utils import direct_register_custom_op
+from vllm.logger import init_logger
 from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
 from vllm.model_executor.layers.layernorm import GemmaRMSNorm
 from vllm.model_executor.layers.linear import (
@@ -22,10 +22,9 @@ from vllm.model_executor.layers.linear import (
     adjust_block_scale_shard,
 )
 from vllm.model_executor.layers.quantization import QuantizationConfig
-from vllm.model_executor.parameter import BasevLLMParameter, BlockQuantScaleParameter
 from vllm.model_executor.layers.rotary_embedding import get_rope
-from vllm.logger import init_logger
-from vllm.utils.torch_utils import kv_cache_dtype_str_to_dtype
+from vllm.model_executor.parameter import BasevLLMParameter, BlockQuantScaleParameter
+from vllm.utils.torch_utils import direct_register_custom_op, kv_cache_dtype_str_to_dtype
 from vllm.v1.attention.backend import (
     AttentionBackend,
     AttentionCGSupport,
@@ -43,6 +42,7 @@ from vllm.v1.kv_cache_interface import (
     KVCacheSpec,
     get_kv_quant_mode,
 )
+
 from vllm_ascend.attention.msa_m3_npu import minimax_m3_sparse_attn
 from vllm_ascend.attention.msa_m3_triton import (
     minimax_m3_sparse_attn_decode,
@@ -52,10 +52,8 @@ from vllm_ascend.attention.shy_indexer import (
     minimax_m3_index_score,
     minimax_m3_index_topk,
 )
-
 from vllm_ascend.ops.linear import AscendColumnParallelLinear
 from vllm_ascend.ops.linear_op import get_parallel_op
-
 
 logger = init_logger(__name__)
 
@@ -114,11 +112,11 @@ class AscendMiniMaxM3IndexerBackend(AttentionBackend):
         return "ASCEND_MINIMAX_M3_SPARSE_INDEXER"
 
     @staticmethod
-    def get_impl_cls() -> type["AscendMiniMaxM3IndexerImpl"]:
+    def get_impl_cls() -> type[AscendMiniMaxM3IndexerImpl]:
         return AscendMiniMaxM3IndexerImpl
 
     @staticmethod
-    def get_builder_cls() -> type["AscendMiniMaxM3IndexerMetadataBuilder"]:
+    def get_builder_cls() -> type[AscendMiniMaxM3IndexerMetadataBuilder]:
         return AscendMiniMaxM3IndexerMetadataBuilder
 
     @classmethod
@@ -217,9 +215,7 @@ class AscendMiniMaxM3IndexerMetadata(AttentionMetadata):
     decode: AscendMiniMaxM3IndexerDecodeMetadata | None = None
 
 
-class AscendMiniMaxM3IndexerMetadataBuilder(
-    AttentionMetadataBuilder[AscendMiniMaxM3IndexerMetadata]
-):
+class AscendMiniMaxM3IndexerMetadataBuilder(AttentionMetadataBuilder[AscendMiniMaxM3IndexerMetadata]):
     _cudagraph_support: ClassVar[AttentionCGSupport] = AttentionCGSupport.UNIFORM_BATCH
     reorder_batch_threshold: int = 1
 
@@ -250,40 +246,28 @@ class AscendMiniMaxM3IndexerMetadataBuilder(
         block_table = common_attn_metadata.block_table_tensor
         qsl_cpu = common_attn_metadata.query_start_loc_cpu
 
-        num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = (
-            split_decodes_and_prefills(
-                common_attn_metadata,
-                decode_threshold=self.reorder_batch_threshold,
-                require_uniform=True,
-            )
+        num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = split_decodes_and_prefills(
+            common_attn_metadata,
+            decode_threshold=self.reorder_batch_threshold,
+            require_uniform=True,
         )
 
         prefill_metadata: AscendMiniMaxM3IndexerPrefillMetadata | None = None
         active_prefills = 0
         if num_prefills > 0:
-            active_prefills = _active_prefill_num_reqs(
-                num_prefills, num_prefill_tokens, qsl_cpu, num_decodes
-            )
+            active_prefills = _active_prefill_num_reqs(num_prefills, num_prefill_tokens, qsl_cpu, num_decodes)
             prefill_end = num_decodes + active_prefills
-            prefill_query_lens_cpu = (
-                qsl_cpu[num_decodes + 1 : prefill_end + 1]
-                - qsl_cpu[num_decodes:prefill_end]
-            )
+            prefill_query_lens_cpu = qsl_cpu[num_decodes + 1 : prefill_end + 1] - qsl_cpu[num_decodes:prefill_end]
             prefill_context_lens = self.context_len_buffer[num_decodes:prefill_end]
             prefill_context_lens.copy_(
-                (
-                    seq_lens[num_decodes:prefill_end].detach().cpu()
-                    - prefill_query_lens_cpu
-                ).to(
+                (seq_lens[num_decodes:prefill_end].detach().cpu() - prefill_query_lens_cpu).to(
                     device=self.context_len_buffer.device,
                     dtype=torch.int32,
                     non_blocking=True,
                 ),
                 non_blocking=True,
             )
-            cu_seqlens_q = (
-                query_start_loc[num_decodes : prefill_end + 1] - num_decode_tokens
-            ).to(torch.int32)
+            cu_seqlens_q = (query_start_loc[num_decodes : prefill_end + 1] - num_decode_tokens).to(torch.int32)
             prefill_metadata = AscendMiniMaxM3IndexerPrefillMetadata(
                 cu_seqlens_q=cu_seqlens_q,
                 seq_lens=seq_lens[num_decodes:prefill_end],
@@ -299,9 +283,7 @@ class AscendMiniMaxM3IndexerMetadataBuilder(
             qsl_cpu = common_attn_metadata.query_start_loc_cpu
             query_lens_cpu = qsl_cpu[1 : num_decodes + 1] - qsl_cpu[:num_decodes]
             decode_query_len = int(query_lens_cpu[0].item())
-            active_decodes = _active_decode_num_reqs(
-                num_decodes, num_decode_tokens, decode_query_len
-            )
+            active_decodes = _active_decode_num_reqs(num_decodes, num_decode_tokens, decode_query_len)
             decode_metadata = AscendMiniMaxM3IndexerDecodeMetadata(
                 seq_lens=seq_lens[:active_decodes],
                 block_table=block_table[:active_decodes],
@@ -364,9 +346,7 @@ class AscendMiniMaxM3IndexerImpl(nn.Module):
         assert isinstance(index_md, AscendMiniMaxM3IndexerMetadata)
         num_tokens = index_md.num_actual_tokens
         nd = index_md.num_decode_tokens
-        iq = index_query[:num_tokens].view(
-            -1, self.num_index_heads, self.index_head_dim
-        )
+        iq = index_query[:num_tokens].view(-1, self.num_index_heads, self.index_head_dim)
         kv = self.index_cache.kv_cache
 
         decode_topk: torch.Tensor | None = None
@@ -469,11 +449,11 @@ class AscendMiniMaxM3SparseBackend(AttentionBackend):
         return "ASCEND_MINIMAX_M3_SPARSE"
 
     @staticmethod
-    def get_impl_cls() -> type["AscendMiniMaxM3SparseImpl"]:
+    def get_impl_cls() -> type[AscendMiniMaxM3SparseImpl]:
         return AscendMiniMaxM3SparseImpl
 
     @staticmethod
-    def get_builder_cls() -> type["AscendMiniMaxM3SparseMetadataBuilder"]:
+    def get_builder_cls() -> type[AscendMiniMaxM3SparseMetadataBuilder]:
         return AscendMiniMaxM3SparseMetadataBuilder
 
     @classmethod
@@ -540,9 +520,7 @@ class AscendMiniMaxM3SparseMetadata(AttentionMetadata):
     decode: AscendMiniMaxM3SparseDecodeMetadata | None = None
 
 
-class AscendMiniMaxM3SparseMetadataBuilder(
-    AttentionMetadataBuilder[AscendMiniMaxM3SparseMetadata]
-):
+class AscendMiniMaxM3SparseMetadataBuilder(AttentionMetadataBuilder[AscendMiniMaxM3SparseMetadata]):
     _cudagraph_support: ClassVar[AttentionCGSupport] = AttentionCGSupport.UNIFORM_BATCH
     reorder_batch_threshold: int = 1
 
@@ -573,45 +551,32 @@ class AscendMiniMaxM3SparseMetadataBuilder(
         block_table = common_attn_metadata.block_table_tensor
         qsl_cpu = common_attn_metadata.query_start_loc_cpu
 
-        num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = (
-            split_decodes_and_prefills(
-                common_attn_metadata,
-                decode_threshold=self.reorder_batch_threshold,
-                require_uniform=True,
-            )
+        num_decodes, num_prefills, num_decode_tokens, num_prefill_tokens = split_decodes_and_prefills(
+            common_attn_metadata,
+            decode_threshold=self.reorder_batch_threshold,
+            require_uniform=True,
         )
 
         prefill_metadata: AscendMiniMaxM3SparsePrefillMetadata | None = None
         active_prefills = 0
         if num_prefills > 0:
-            active_prefills = _active_prefill_num_reqs(
-                num_prefills, num_prefill_tokens, qsl_cpu, num_decodes
-            )
+            active_prefills = _active_prefill_num_reqs(num_prefills, num_prefill_tokens, qsl_cpu, num_decodes)
             prefill_end = num_decodes + active_prefills
             prefill_kv_lens = seq_lens[num_decodes:prefill_end]
-            prefill_cu_seqlens_k = torch.empty(
-                active_prefills + 1, dtype=torch.int32, device=seq_lens.device
-            )
+            prefill_cu_seqlens_k = torch.empty(active_prefills + 1, dtype=torch.int32, device=seq_lens.device)
             prefill_cu_seqlens_k[0] = 0
             torch.cumsum(prefill_kv_lens, dim=0, out=prefill_cu_seqlens_k[1:])
-            prefill_query_lens_cpu = (
-                qsl_cpu[num_decodes + 1 : prefill_end + 1]
-                - qsl_cpu[num_decodes:prefill_end]
-            )
+            prefill_query_lens_cpu = qsl_cpu[num_decodes + 1 : prefill_end + 1] - qsl_cpu[num_decodes:prefill_end]
             prefill_context_lens = self.context_len_buffer[num_decodes:prefill_end]
             prefill_context_lens.copy_(
-                (
-                    prefill_kv_lens.detach().cpu() - prefill_query_lens_cpu
-                ).to(
+                (prefill_kv_lens.detach().cpu() - prefill_query_lens_cpu).to(
                     device=self.context_len_buffer.device,
                     dtype=torch.int32,
                     non_blocking=True,
                 ),
                 non_blocking=True,
             )
-            cu_seqlens_q = (
-                query_start_loc[num_decodes : prefill_end + 1] - num_decode_tokens
-            ).to(torch.int32)
+            cu_seqlens_q = (query_start_loc[num_decodes : prefill_end + 1] - num_decode_tokens).to(torch.int32)
             prefill_metadata = AscendMiniMaxM3SparsePrefillMetadata(
                 cu_seqlens_q=cu_seqlens_q,
                 cu_seqlens_k=prefill_cu_seqlens_k,
@@ -628,9 +593,7 @@ class AscendMiniMaxM3SparseMetadataBuilder(
             qsl_cpu = common_attn_metadata.query_start_loc_cpu
             query_lens_cpu = qsl_cpu[1 : num_decodes + 1] - qsl_cpu[:num_decodes]
             decode_query_len = int(query_lens_cpu[0].item())
-            active_decodes = _active_decode_num_reqs(
-                num_decodes, num_decode_tokens, decode_query_len
-            )
+            active_decodes = _active_decode_num_reqs(num_decodes, num_decode_tokens, decode_query_len)
             decode_metadata = AscendMiniMaxM3SparseDecodeMetadata(
                 seq_lens=seq_lens[:active_decodes],
                 block_table=block_table[:active_decodes],
@@ -744,8 +707,7 @@ class AscendMiniMaxM3QKVParallelLinearWithIndexer(QKVParallelLinear):
         prefix: str = "",
     ) -> None:
         assert total_num_index_heads == total_num_kv_heads, (
-            "AscendMiniMaxM3QKVParallelLinearWithIndexer requires "
-            "total_num_index_heads == total_num_kv_heads"
+            "AscendMiniMaxM3QKVParallelLinearWithIndexer requires total_num_index_heads == total_num_kv_heads"
         )
         self.hidden_size = hidden_size
         self.head_size = head_size
@@ -838,13 +800,9 @@ class AscendMiniMaxM3QKVParallelLinearWithIndexer(QKVParallelLinear):
         assert shard_offset is not None and shard_size is not None
         if isinstance(param, BlockQuantScaleParameter):
             weight_block_size = getattr(self, "weight_block_size", None)
-            shard_size, shard_offset = adjust_block_scale_shard(
-                weight_block_size, shard_size, shard_offset
-            )
+            shard_size, shard_offset = adjust_block_scale_shard(weight_block_size, shard_size, shard_offset)
 
-        num_heads = (
-            self.tp_size if loaded_shard_id == "index_k" else self.num_kv_head_replicas
-        )
+        num_heads = self.tp_size if loaded_shard_id == "index_k" else self.num_kv_head_replicas
         param.load_qkv_weight(
             loaded_weight=loaded_weight,
             num_heads=num_heads,
@@ -870,9 +828,7 @@ class AscendMiniMaxM3QKVParallelLinearWithIndexer(QKVParallelLinear):
         assert shard_offset is not None and shard_size is not None
         if isinstance(param, BlockQuantScaleParameter):
             weight_block_size = getattr(self, "weight_block_size", None)
-            shard_size, shard_offset = adjust_block_scale_shard(
-                weight_block_size, shard_size, shard_offset
-            )
+            shard_size, shard_offset = adjust_block_scale_shard(weight_block_size, shard_size, shard_offset)
 
         param_data = param.data.narrow(output_dim, shard_offset, shard_size)
         if loaded_shard_id == "q":
@@ -881,11 +837,10 @@ class AscendMiniMaxM3QKVParallelLinearWithIndexer(QKVParallelLinear):
             shard_rank = 0
         else:
             shard_rank = self.tp_rank // self.num_kv_head_replicas
-        loaded_weight = loaded_weight.narrow(
-            output_dim, shard_rank * shard_size, shard_size
-        )
+        loaded_weight = loaded_weight.narrow(output_dim, shard_rank * shard_size, shard_size)
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
+
 
 class AscendMiniMaxM3IndexerLinear(AscendColumnParallelLinear):
     """Merged [index_q | index_k] projection for M3 sparse layers.
@@ -943,8 +898,7 @@ class AscendMiniMaxM3IndexerLinear(AscendColumnParallelLinear):
             return
         if loaded_shard_id not in ("index_q", "index_k"):
             raise ValueError(
-                "Shard id for AscendMinimaxM3Indexer must be one of "
-                f"'index_q', 'index_k'; got {loaded_shard_id}."
+                f"Shard id for AscendMinimaxM3Indexer must be one of 'index_q', 'index_k'; got {loaded_shard_id}."
             )
 
     def _get_shard_offset_mapping(self, loaded_shard_id: str) -> int | None:
@@ -973,15 +927,9 @@ class AscendMiniMaxM3IndexerLinear(AscendColumnParallelLinear):
         assert shard_offset is not None and shard_size is not None
         if isinstance(param, BlockQuantScaleParameter):
             weight_block_size = getattr(self, "weight_block_size", None)
-            shard_size, shard_offset = adjust_block_scale_shard(
-                weight_block_size, shard_size, shard_offset
-            )
+            shard_size, shard_offset = adjust_block_scale_shard(weight_block_size, shard_size, shard_offset)
 
-        num_heads = (
-            self.tp_size
-            if loaded_shard_id == "index_k"
-            else self.num_index_head_replicas
-        )
+        num_heads = self.tp_size if loaded_shard_id == "index_k" else self.num_index_head_replicas
         param.load_qkv_weight(
             loaded_weight=loaded_weight,
             num_heads=num_heads,
@@ -1007,18 +955,14 @@ class AscendMiniMaxM3IndexerLinear(AscendColumnParallelLinear):
         assert shard_offset is not None and shard_size is not None
         if isinstance(param, BlockQuantScaleParameter):
             weight_block_size = getattr(self, "weight_block_size", None)
-            shard_size, shard_offset = adjust_block_scale_shard(
-                weight_block_size, shard_size, shard_offset
-            )
+            shard_size, shard_offset = adjust_block_scale_shard(weight_block_size, shard_size, shard_offset)
 
         param_data = param.data.narrow(output_dim, shard_offset, shard_size)
         if loaded_shard_id == "index_k":
             shard_rank = 0
         else:
             shard_rank = self.tp_rank // self.num_index_head_replicas
-        loaded_weight = loaded_weight.narrow(
-            output_dim, shard_rank * shard_size, shard_size
-        )
+        loaded_weight = loaded_weight.narrow(output_dim, shard_rank * shard_size, shard_size)
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
@@ -1062,8 +1006,7 @@ def _use_fused_qkv_indexer(
         return True
 
     qkv_types = [
-        _sparse_proj_quant_type(quant_config, prefix, proj_name)
-        for proj_name in ("q_proj", "k_proj", "v_proj")
+        _sparse_proj_quant_type(quant_config, prefix, proj_name) for proj_name in ("q_proj", "k_proj", "v_proj")
     ]
     index_q_type = _sparse_proj_quant_type(quant_config, prefix, "index_q_proj")
     index_k_type = _sparse_proj_quant_type(quant_config, prefix, "index_k_proj")
@@ -1071,13 +1014,10 @@ def _use_fused_qkv_indexer(
     if any(value is None for value in (*qkv_types, index_q_type, index_k_type)):
         return True
     if len(set(qkv_types)) != 1:
-        raise ValueError(
-            f"MiniMax M3 q/k/v quantization types differ for {prefix}: {qkv_types}"
-        )
+        raise ValueError(f"MiniMax M3 q/k/v quantization types differ for {prefix}: {qkv_types}")
     if index_q_type != index_k_type:
         raise ValueError(
-            "MiniMax M3 index_q/index_k quantization types differ for "
-            f"{prefix}: {index_q_type} vs {index_k_type}"
+            f"MiniMax M3 index_q/index_k quantization types differ for {prefix}: {index_q_type} vs {index_k_type}"
         )
     return qkv_types[0] == index_q_type
 
@@ -1141,8 +1081,7 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
         self.total_idx_heads = sparse_cfg["sparse_num_index_heads"]
         self.idx_head_dim = sparse_cfg["sparse_index_dim"]
         assert self.total_idx_heads == self.total_num_kv_heads, (
-            "MiniMax M3 sparse attention requires "
-            "sparse_num_index_heads == num_key_value_heads"
+            "MiniMax M3 sparse attention requires sparse_num_index_heads == num_key_value_heads"
         )
         self.num_idx_heads = self.num_kv_heads
         self.index_q_size = self.num_idx_heads * self.idx_head_dim
@@ -1204,12 +1143,8 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
 
         vllm_config = get_current_vllm_config()
         self.layer_name = f"{prefix}.attn"
-        self.kv_cache_dtype = (
-            cache_config.cache_dtype if cache_config is not None else "auto"
-        )
-        self.kv_cache_torch_dtype = kv_cache_dtype_str_to_dtype(
-            self.kv_cache_dtype, vllm_config.model_config
-        )
+        self.kv_cache_dtype = cache_config.cache_dtype if cache_config is not None else "auto"
+        self.kv_cache_torch_dtype = kv_cache_dtype_str_to_dtype(self.kv_cache_dtype, vllm_config.model_config)
         self.attn_backend = AscendMiniMaxM3SparseBackend
         self.impl = AscendMiniMaxM3SparseImpl(
             self.num_heads,
@@ -1243,8 +1178,7 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
         global _SPARSE_ATTN_LOGGED
         if not _SPARSE_ATTN_LOGGED:
             logger.warning(
-                "MiniMax M3 sparse attention enabled via npu_sparse_attention_score "
-                "(topk_blocks=%d, block_size=%d)",
+                "MiniMax M3 sparse attention enabled via npu_sparse_attention_score (topk_blocks=%d, block_size=%d)",
                 sparse_cfg["sparse_topk_blocks"],
                 sparse_cfg["sparse_block_size"],
             )
@@ -1337,9 +1271,7 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
             or positions.ndim != 1
             or not getattr(self.rotary_emb, "is_neox_style", True)
         ):
-            q, k, v = main_qkv.split(
-                [self.q_size, self.kv_size, self.kv_size], dim=-1
-            )
+            q, k, v = main_qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
             v = v.contiguous()
             q, k = self._qk_norm(q, k)
             q, k = self.rotary_emb(positions, q, k)
@@ -1396,9 +1328,7 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
         projected, _ = self.o_proj(attn_out)
         return projected
 
-    def _qk_norm(
-        self, q: torch.Tensor, k: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _qk_norm(self, q: torch.Tensor, k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         q_shape = q.shape
         k_shape = k.shape
         q = q.reshape(-1, self.head_dim).contiguous()
@@ -1407,9 +1337,7 @@ class MiniMaxM3SparseAttention(nn.Module, AttentionLayerBase):
         k = self.k_norm(k).reshape(k_shape)
         return q, k
 
-    def _index_qk_norm(
-        self, idx_q: torch.Tensor, idx_k: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _index_qk_norm(self, idx_q: torch.Tensor, idx_k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         idx_q_shape = idx_q.shape
         idx_k_shape = idx_k.shape
         idx_q = idx_q.reshape(-1, self.index_q_size)
@@ -1436,9 +1364,7 @@ def minimax_m3_sparse_forward(
         return
 
     layer = forward_context.no_compile_layers[layer_name]
-    layer._run_sparse_attention(
-        query, key, value, index_query, index_key, attn_output
-    )
+    layer._run_sparse_attention(query, key, value, index_query, index_key, attn_output)
 
 
 def minimax_m3_sparse_forward_fake(

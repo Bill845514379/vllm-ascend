@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -103,10 +103,10 @@ template <typename T, typename TilingData>
 __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::AssistInit() {
   LocalTensor<int16_t> outLocal = copyOutZeroQueue.AllocTensor<int16_t>();
   Duplicate<int16_t>(outLocal, static_cast<int16_t>(0), this->perLoopCols);
-  copyOutZeroQueue.EnQue<int16_t>(outLocal);
+  copyOutZeroQueue.enqueue<int16_t>(outLocal);
   LocalTensor<float> scaleOutLocal = scaleOutZeroQueue.AllocTensor<float>();
   Duplicate<float>(scaleOutLocal, 0.0f, 8);
-  scaleOutZeroQueue.EnQue<float>(scaleOutLocal);
+  scaleOutZeroQueue.enqueue<float>(scaleOutLocal);
 
   if (this->blockIdx != 0) {
     this->lastCoreExpertId = expertIdxValueGm.GetValue((this->blockIdx - 1) * 2);
@@ -129,7 +129,7 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::CopyIn(int64_t pro
   DataCopy(inLocal, expandDstToSrcRowGm[progress * perLoopRows], length);
   DataCopy(inLocal[length], expandedExpertIdxGm[progress * perLoopRows], length);
 
-  copyInQueue.EnQue<int32_t>(inLocal);
+  copyInQueue.enqueue<int32_t>(inLocal);
 }
 
 template <typename T, typename TilingData>
@@ -152,8 +152,8 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::Compute(int32_t sr
     DataCopyPad(smoothLocal, quantSmoothGm[expertIdx * this->cols], smoothParams, {false, 0, 0, 0});
   }
 
-  inputXInQueue.EnQue<float>(inLocal);
-  smoothInQueue.EnQue(smoothLocal);
+  inputXInQueue.enqueue<float>(inLocal);
+  smoothInQueue.enqueue(smoothLocal);
   smoothLocal = smoothInQueue.DeQue<float>();
 
   inLocal = inputXInQueue.DeQue<float>();
@@ -193,8 +193,8 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::Compute(int32_t sr
   Cast(outLocal, tempLocal.ReinterpretCast<half>(), RoundMode::CAST_ROUND, this->cols);
 
   calcQueue.FreeTensor(tempLocal);
-  inputXOutQueue.EnQue(outLocal);
-  scaleOutQueue.EnQue(dynamicQuantLocal);
+  inputXOutQueue.enqueue(outLocal);
+  scaleOutQueue.enqueue(dynamicQuantLocal);
 
   LocalTensor<float> quantScaleLocal = scaleOutQueue.DeQue<float>();
   DataCopyPad(dynamicQuantScaleGm[dstIdx], quantScaleLocal, {1, 4, 0, 0, 0});
@@ -269,7 +269,7 @@ __aicore__ inline float MoeV2SrcToDstAndGather<T, TilingData>::ComputeMax(LocalT
     DataCopyPad(inLocal, inputXGm[srcIdx * this->cols + j * this->perLoopCols], intriParamsT, {false, 0, 0, 0});
   }
 
-  inputXInQueue.EnQue<float>(inLocal);
+  inputXInQueue.enqueue<float>(inLocal);
   inLocal = inputXInQueue.DeQue<float>();
 
   if constexpr (!IsSameType<T, float>::value) {
@@ -280,7 +280,7 @@ __aicore__ inline float MoeV2SrcToDstAndGather<T, TilingData>::ComputeMax(LocalT
   if (smoothType != 0) {
     DataCopyPad(smoothLocal, quantSmoothGm[expertIdx * this->cols + j * this->perLoopCols], intriParamsFp32,
                 {false, 0, 0, 0});
-    smoothInQueue.EnQue(smoothLocal);
+    smoothInQueue.enqueue(smoothLocal);
     smoothLocal = smoothInQueue.DeQue<float>();
 
     Mul(inLocal, inLocal, smoothLocal, colsTileLength);
@@ -310,7 +310,7 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::ComputeScale(Local
   LocalTensor<int8_t> outLocal = inputXOutQueue.AllocTensor<int8_t>();
 
   DataCopyPad(inLocal, quantSrcGm[j * this->perLoopCols], copyInParams, {false, 0, 0, 0});
-  inputXInQueue.EnQue<float>(inLocal);
+  inputXInQueue.enqueue<float>(inLocal);
   inLocal = inputXInQueue.DeQue<float>();
 
   Duplicate<float>(tempLocal, scaleTemp, colsTileLength);
@@ -324,7 +324,7 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::ComputeScale(Local
 
   Cast(outLocal, tempLocal.ReinterpretCast<half>(), RoundMode::CAST_ROUND, colsTileLength);
 
-  inputXOutQueue.EnQue(outLocal);
+  inputXOutQueue.enqueue(outLocal);
   outLocal = inputXOutQueue.DeQue<int8_t>();
   DataCopyPad(expandedXGm[dstIndex * this->cols + j * this->perLoopCols], outLocal, copyOutParams);
 
@@ -352,7 +352,7 @@ __aicore__ inline void MoeV2SrcToDstAndGather<T, TilingData>::ComputeLoops(int32
 
   float scaleTemp = reduceMax / 127.0f;
   Duplicate<float>(quantScaleLocal, scaleTemp, 8);
-  scaleOutQueue.EnQue(quantScaleLocal);
+  scaleOutQueue.enqueue(quantScaleLocal);
   quantScaleLocal = scaleOutQueue.DeQue<float>();
 
   DataCopyPad(dynamicQuantScaleGm[dstIdx], quantScaleLocal, {1, 4, 0, 0, 0});

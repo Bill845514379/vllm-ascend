@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -85,7 +85,7 @@ __aicore__ inline void MoeCustomFullLoad::CopyIn()
     DataCopyPad(inLocal[0], expertIdxGm, dataCopyParams, dataCopyPadParams);
     LocalTensor<int32_t> rowIdxLocal = inLocal[this->sortNum];
     ArithProgression<int32_t>(rowIdxLocal, 0, 1, this->sortNum);
-    sortDataCopyInQueue.EnQue(inLocal);
+    sortDataCopyInQueue.enqueue(inLocal);
 }
 
 __aicore__ inline void MoeCustomFullLoad::SortCompute()
@@ -124,7 +124,7 @@ __aicore__ inline void MoeCustomFullLoad::SortCompute()
     LocalTensor<int32_t> expertForSourceRowLocalInt32;
     expertForSourceRowLocalInt32 = sortedExpertForSourceRowLocal.ReinterpretCast<int32_t>();
     Cast(expertForSourceRowLocalInt32, sortedExpertForSourceRowLocal, RoundMode::CAST_ROUND, this->tileLength);
-    sortDataCopyOutQueue.EnQue<float>(outLocal);
+    sortDataCopyOutQueue.enqueue<float>(outLocal);
     sortDataCopyInQueue.FreeTensor(inLocal);
 }
 
@@ -158,8 +158,8 @@ __aicore__ inline void MoeCustomFullLoad::ExpertCountCompute()
     expertTokensLocalTensor.SetValue(index * kvFactor + 1, 0);
     SetWaitFlag<HardEvent::S_MTE3>(HardEvent::S_MTE3);
 
-    expertTokensCountOrCumsumOutQueue.EnQue<int64_t>(expertTokensLocalTensor);
-    sortDataCopyOutQueue.EnQue<int32_t>(outLocal);
+    expertTokensCountOrCumsumOutQueue.enqueue<int64_t>(expertTokensLocalTensor);
+    sortDataCopyOutQueue.enqueue<int32_t>(outLocal);
 }
 
 __aicore__ inline void MoeCustomFullLoad::CopyOutDynamicQuant()
@@ -183,7 +183,7 @@ __aicore__ inline void MoeCustomFullLoad::CopyOutDynamicQuant()
     DataCopyExtParams copyOutParams{1, static_cast<uint32_t>(cols_ * sizeof(int8_t)), 0, 0, 0};
     DataCopyPad(xInLocal, inputXGm, copyInParams, {false, 0, 0, 0});
     DataCopyPad(smoothLocal, smoothGm[expertIdx * cols_], smoothParams, {false, 0, 0, 0});
-    smoothInQueue.EnQue<float>(smoothLocal);
+    smoothInQueue.enqueue<float>(smoothLocal);
     smoothLocal = smoothInQueue.DeQue<float>();
     Cast(tempLocal, xInLocal, RoundMode::CAST_NONE, cols_);
     Mul(smoothLocal, tempLocal, smoothLocal, cols_);
@@ -197,9 +197,9 @@ __aicore__ inline void MoeCustomFullLoad::CopyOutDynamicQuant()
     Div(tempLocal, smoothLocal, tempLocal, cols_);
     Cast(tempLocal.ReinterpretCast<half>(), tempLocal, RoundMode::CAST_ODD, cols_);  // fp32->fp16
     Cast(xOutLocal, tempLocal.ReinterpretCast<half>(), RoundMode::CAST_RINT, cols_); // fp16->int8
-    inputXOutQueue.EnQue<int8_t>(xOutLocal);
+    inputXOutQueue.enqueue<int8_t>(xOutLocal);
     xOutLocal = inputXOutQueue.DeQue<int8_t>();
-    scaleOutQueue.EnQue<float>(scaleLocal);
+    scaleOutQueue.enqueue<float>(scaleLocal);
     scaleLocal = scaleOutQueue.DeQue<float>();
     DataCopyPad(expandedXGm[blockIdx * cols_], xOutLocal, copyOutParams);
     DataCopyPad(expandedScaleGm[blockIdx], scaleLocal, {1, 4, 0, 0, 0});

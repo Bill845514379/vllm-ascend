@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -135,8 +135,8 @@ __aicore__ inline void MoeCustomFullLoadUnquantized<T>::GatherOutX()
             DataCopyPad(expandedXGm_[dstOffset], xLocal, copyParams);
         }
         xCopyInQueue_.FreeTensor(xLocal);
-        this->expandedExpertIdxCopyOutQueue_.template EnQue<int32_t>(expandedExpertIdx);
-        this->expandDstToSrcRowQueue_.template EnQue<int32_t>(expandDstToSrcRowLocal);
+        this->expandedExpertIdxCopyOutQueue_.template enqueue<int32_t>(expandedExpertIdx);
+        this->expandDstToSrcRowQueue_.template enqueue<int32_t>(expandDstToSrcRowLocal);
     } else {
         LocalTensor<T> xLocal = xCopyInQueue_.AllocTensor<T>();
         DataCopyExtParams dataXCopyParams{static_cast<uint16_t>(this->endXRow_ - this->startXRow_ + 1),
@@ -159,7 +159,7 @@ __aicore__ inline void MoeCustomFullLoadUnquantized<T>::GatherOutX()
             }
         }
         xCopyInQueue_.FreeTensor(xLocal);
-        this->expandedRowIdxCopyOutQueue_.template EnQue<int32_t>(expandedRowIdx);
+        this->expandedRowIdxCopyOutQueue_.template enqueue<int32_t>(expandedRowIdx);
     }
 }
 
@@ -198,8 +198,8 @@ __aicore__ inline void MoeCustomFullLoadUnquantized<T>::CopyOutScale()
             SetWaitFlag<HardEvent::MTE2_MTE3>(HardEvent::MTE2_MTE3);
             DataCopyPad(expandedScaleGm_[i], scaleLocal, copyParams);
         }
-        this->expandedExpertIdxCopyOutQueue_.template EnQue<int32_t>(expandedExpertIdx);
-        this->expandDstToSrcRowQueue_.template EnQue<int32_t>(expandDstToSrcRowLocal);
+        this->expandedExpertIdxCopyOutQueue_.template enqueue<int32_t>(expandedExpertIdx);
+        this->expandDstToSrcRowQueue_.template enqueue<int32_t>(expandDstToSrcRowLocal);
     } else {
         LocalTensor<int32_t> expandedRowIdx = this->expandedRowIdxCopyOutQueue_.template DeQue<int32_t>();
         int64_t curIndexStart = this->curIndexStart_;
@@ -215,7 +215,7 @@ __aicore__ inline void MoeCustomFullLoadUnquantized<T>::CopyOutScale()
                 }
             }
         }
-        this->expandedRowIdxCopyOutQueue_.template EnQue<int32_t>(expandedRowIdx);
+        this->expandedRowIdxCopyOutQueue_.template enqueue<int32_t>(expandedRowIdx);
     }
     scaleCopyInQueue_.FreeTensor(scaleLocal);
 }

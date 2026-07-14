@@ -30,7 +30,7 @@ From a technical view, vllm-ascend supports devices if torch-npu is supported. O
 
 ### 2. How to get our docker containers?
 
-You can get our containers at `Quay.io`, e.g., [<u>vllm-ascend</u>](https://quay.io/repository/ascend/vllm-ascend?tab=tags) and [<u>cann</u>](https://quay.io/repository/ascend/cann?tab=tags).
+You can get our containers at `Quay.io`, e.g., [<u>vllm-ascend</u>](https://quay.io/repository/ascend/vllm-ascend?tab=tags) and [<u>can</u>](https://quay.io/repository/ascend/can?tab=tags).
 
 If you are in China, you can use `daocloud` or some other mirror sites to accelerate your downloading:
 
@@ -90,7 +90,7 @@ Find more details [<u>here</u>](https://docs.vllm.ai/projects/ascend/en/latest/u
 Basically, the reason is that the NPU environment is not configured correctly. You can:
 
 1. try `source /usr/local/Ascend/nnal/atb/set_env.sh` to enable NNAL package.
-2. try `source /usr/local/Ascend/ascend-toolkit/set_env.sh` to enable CANN package.
+2. try `source /usr/local/Ascend/ascend-toolkit/set_env.sh` to enable CAN package.
 3. try `npu-smi info` to check whether the NPU is working.
 
 If the above steps are not working, you can try the following code in Python to check whether there are any errors:
@@ -215,14 +215,14 @@ When vLLM Ascend recognizes this capture-time stream-resource signature in the e
 
 Recommended mitigation strategies:
 
-1. Upgrade to a newer HDK/CANN stack if one is available for your environment. Recent releases improve ACL graph capacity, so older workarounds may no longer be necessary.
+1. Upgrade to a newer HDK/CAN stack if one is available for your environment. Recent releases improve ACL graph capacity, so older workarounds may no longer be necessary.
 2. Manually reduce the configured graph sizes, for example: '{"cudagraph_capture_sizes":[size1, size2, size3, ...]}', or lower `max_cudagraph_capture_size`.
 3. If your workload is mostly uniform decode, try ACLGraph's `FULL` or `FULL_DECODE_ONLY` mode instead of the `PIECEWISE`.
 4. If you use `PIECEWISE` or `FULL_AND_PIECEWISE` and still hit this failure after upgrading, set `cudagraph_capture_sizes` manually according to your real workload and reduce the configured coverage.
 5. If you are debugging a startup failure, temporarily disable graph mode (`cudagraph_mode="NONE"` / `enforce_eager=True`) to confirm the issue is capture-related.
 
 Root cause analysis:
-ACL graph capture can still fail when the runtime resources required by the selected graph sizes exceed what the current software/hardware stack can provide. This is most visible in `PIECEWISE` scenarios because the number of captured graphs scales with model depth and capture-size coverage. vLLM Ascend no longer auto-shrinks the PIECEWISE capture-size set locally, so the practical mitigations are to upgrade the HDK/CANN stack or reduce the configured graph sizes explicitly. The runtime guidance is intentionally narrow: it is only added when capture fails with the confirmed stream-resource signature above.
+ACL graph capture can still fail when the runtime resources required by the selected graph sizes exceed what the current software/hardware stack can provide. This is most visible in `PIECEWISE` scenarios because the number of captured graphs scales with model depth and capture-size coverage. vLLM Ascend no longer auto-shrinks the PIECEWISE capture-size set locally, so the practical mitigations are to upgrade the HDK/CAN stack or reduce the configured graph sizes explicitly. The runtime guidance is intentionally narrow: it is only added when capture fails with the confirmed stream-resource signature above.
 
 ### 18. How to install custom version of torch_npu?
 

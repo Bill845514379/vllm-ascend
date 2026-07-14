@@ -34,7 +34,7 @@ class TransposeKvCacheByBlockKernelFullLoad {
         for (uint32_t i = 0; i < splitNum_; ++i) {
             DataCopy(cacheLocal[i * dstFactor_], cacheGm[i * srcFactor_ + offsetBlock], repeatParams);
         }
-        vecInQueue_.EnQue(cacheLocal);
+        vecInQueue_.enqueue(cacheLocal);
     }
 
     __aicore__ inline void CopyOut(GlobalTensor<T> &cacheGm, uint32_t offsetBlock) {

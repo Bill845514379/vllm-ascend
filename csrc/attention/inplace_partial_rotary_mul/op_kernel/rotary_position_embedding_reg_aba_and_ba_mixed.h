@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -276,8 +276,8 @@ __aicore__ inline void RotaryPositionEmbeddingABAAndBAMixed<TX, IsBBoardcast>::C
         copyExtParams,
         copyPadExtparams);
     ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
-    this->cosInQueue_.template EnQue(cosUb);
-    this->sinInQueue_.template EnQue(sinUb);
+    this->cosInQueue_.template enqueue(cosUb);
+    this->sinInQueue_.template enqueue(sinUb);
 }
 
 template <typename TX, bool IsBBoardcast>
@@ -305,7 +305,7 @@ __aicore__ inline void RotaryPositionEmbeddingABAAndBAMixed<TX, IsBBoardcast>::C
                      tilingData_->sliceStart;
     DataCopyPad(target, source[offset], copyExtParams, copyPadExtparams);
     ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
-    this->qInQueue_.template EnQue(target);
+    this->qInQueue_.template enqueue(target);
 }
 
 template <typename TX, bool IsBBoardcast>
@@ -356,7 +356,7 @@ __aicore__ inline void RotaryPositionEmbeddingABAAndBAMixed<TX, IsBBoardcast>::C
         ubFactorN_);
 
     this->qInQueue_.FreeTensor(inUb);
-    this->qOutQueue_.template EnQue(outUb);
+    this->qOutQueue_.template enqueue(outUb);
 }
 
 }  // namespace InplacePartialRotaryMul

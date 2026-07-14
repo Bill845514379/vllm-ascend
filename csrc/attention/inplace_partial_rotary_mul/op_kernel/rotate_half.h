@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -231,8 +231,8 @@ __aicore__ inline void RotateHalf<T>::CopyInR(uint64_t rStartOffset, uint16_t sL
         DataCopyPad(cosLocal, cosGm[rStartOffset], copyParams, this->noPadParams);
         DataCopyPad(sinLocal, sinGm[rStartOffset], copyParams, this->noPadParams);
     }
-    inQueueCos.EnQue(cosLocal);
-    inQueueSin.EnQue(sinLocal);
+    inQueueCos.enqueue(cosLocal);
+    inQueueSin.enqueue(sinLocal);
 }
 
 template <typename T>
@@ -284,7 +284,7 @@ __aicore__ inline void RotateHalf<T>::CopyInX(uint64_t xStartOffset, uint16_t sL
                         this->noPadParams);
         }
     }
-    inQueueX.EnQue(xLocal);
+    inQueueX.enqueue(xLocal);
 }
 
 template <typename T>
@@ -342,7 +342,7 @@ __aicore__ inline void RotateHalf<T>::Compute(LocalTensor<T> &cos, LocalTensor<T
     LocalTensor<T> yLocal = outQueueY.AllocTensor<T>();
     this->XNewCopy(xLocal, yLocal, sLines);
     this->ComputeInner(xLocal, yLocal, cos, sin, calcLength);
-    outQueueY.EnQue(yLocal);
+    outQueueY.enqueue(yLocal);
     inQueueX.FreeTensor<T>(xLocal);
 }
 

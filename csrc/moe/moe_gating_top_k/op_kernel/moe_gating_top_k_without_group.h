@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -108,7 +108,7 @@ __aicore__ inline void MoeGatingTopKWithoutGroup<T>::CopyInX(int64_t row)
         DataCopyPad(xInLocalTensor[expertCountAlign_].ReinterpretCast<T>(), xGm_[row * expertCount_], dataCopyParams,
                     dataCopyPadParams);
     }
-    xInQueue_.EnQue(xInLocalTensor);
+    xInQueue_.enqueue(xInLocalTensor);
 }
 
 template <typename T>
@@ -180,7 +180,7 @@ __aicore__ inline void MoeGatingTopKWithoutGroup<T>::CopuOutXNorm(int64_t row)
     LocalTensor<float> outOutTensor = outOutQueue_.AllocTensor<float>();
     LocalTensor<float> xNormTensor = xNormBuf_.Get<float>();
     DataCopy(outOutTensor, xNormTensor, expertCountAlign_);
-    outOutQueue_.EnQue<float>(outOutTensor);
+    outOutQueue_.enqueue<float>(outOutTensor);
     outOutTensor = outOutQueue_.DeQue<float>();
     DataCopyExtParams dataCopyParams{1, static_cast<uint32_t>(expertCount_ * sizeof(float)), 0, 0, 0};
     DataCopyPad(outGm_[row * expertCount_], outOutTensor, dataCopyParams);
@@ -213,7 +213,7 @@ __aicore__ inline void MoeGatingTopKWithoutGroup<T>::SelectTopKExpertIdx()
                static_cast<uint32_t>(0), gatherMaskParams, rsvdCnt);
 
     DataCopy(expertIdxOut, topKExpertId, expertCountAlign_);
-    expertIdxOutQueue_.EnQue<int32_t>(expertIdxOut);
+    expertIdxOutQueue_.enqueue<int32_t>(expertIdxOut);
 }
 
 template <typename T>
@@ -255,7 +255,7 @@ __aicore__ inline void MoeGatingTopKWithoutGroup<T>::SelectTopKExpertScore()
         Cast(yOutTensor.ReinterpretCast<T>(), yOutTensor, RoundMode::CAST_RINT, k_);
     }
 
-    yOutQueue_.EnQue<float>(yOutTensor);
+    yOutQueue_.enqueue<float>(yOutTensor);
 }
 
 template <typename T>

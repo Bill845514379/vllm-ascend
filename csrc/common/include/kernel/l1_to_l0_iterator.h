@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -23,7 +23,7 @@
 /////////////////////////////////////////////////////
 
 // Partial specialization for vector
-template <ArchType ArchTag, typename DataType, bool IsTransPose>
+template <archetype ArchTag, typename DataType, bool IsTransPose>
 struct l1_to_l0_a<ArchTag, DataType, IsTransPose, DataFormatT::VECTOR, DataFormatT::VECTOR> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t FRACTAL_SIZE = HardwareParams::fractalSize / sizeof(DataType);
@@ -50,7 +50,7 @@ struct l1_to_l0_a<ArchTag, DataType, IsTransPose, DataFormatT::VECTOR, DataForma
 };
 
 // Partial specialization for no transpose, not vector
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct l1_to_l0_a<ArchTag, DataType, false, DataFormatT::ZN, DataFormatT::ZZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);
@@ -81,7 +81,7 @@ struct l1_to_l0_a<ArchTag, DataType, false, DataFormatT::ZN, DataFormatT::ZZ> {
 };
 
 // Partial specialization for transpose, not vector
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct l1_to_l0_a<ArchTag, DataType, true, DataFormatT::ZN, DataFormatT::ZZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);
@@ -111,7 +111,7 @@ struct l1_to_l0_a<ArchTag, DataType, true, DataFormatT::ZN, DataFormatT::ZZ> {
     };
 };
 
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct l1_to_l0_a<ArchTag, DataType, false, DataFormatT::NZ, DataFormatT::ZZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     // 16 * 32
@@ -148,7 +148,7 @@ struct l1_to_l0_a<ArchTag, DataType, false, DataFormatT::NZ, DataFormatT::ZZ> {
 /////////////////////////////////////////////////////
 
 // Partial specialization for vector
-template <ArchType ArchTag, typename DataType, bool IsTransPose>
+template <archetype ArchTag, typename DataType, bool IsTransPose>
 struct l1_to_l0_b<ArchTag, DataType, IsTransPose, DataFormatT::VECTOR, DataFormatT::VECTOR> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t FRACTAL_SIZE = HardwareParams::fractalSize / sizeof(DataType);
@@ -167,7 +167,7 @@ struct l1_to_l0_b<ArchTag, DataType, IsTransPose, DataFormatT::VECTOR, DataForma
     };
 };
 
-template <ArchType ArchTag>
+template <archetype ArchTag>
 struct l1_to_l0_b<ArchTag, int8_t, true, DataFormatT::NZ, DataFormatT::ZN> {
     using HardwareParams = HardwareInfo<ArchTag>;
     using DataType = int8_t;
@@ -197,7 +197,7 @@ struct l1_to_l0_b<ArchTag, int8_t, true, DataFormatT::NZ, DataFormatT::ZN> {
 };
 
 // Partial specialization for no transpose, not vector
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct l1_to_l0_b<ArchTag, DataType, false, DataFormatT::ZN, DataFormatT::NZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);
@@ -228,7 +228,7 @@ struct l1_to_l0_b<ArchTag, DataType, false, DataFormatT::ZN, DataFormatT::NZ> {
 };
 
 // Partial specialization for transpose, not vector
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct l1_to_l0_b<ArchTag, DataType, true, DataFormatT::ZN, DataFormatT::NZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);

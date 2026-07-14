@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -66,10 +66,10 @@ endif()
 
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   message(STATUS "compile project with library")
-  option(BUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG "Build ops-transformer with cann pkg" ON)
+  option(BUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG "Build ops-transformer with can pkg" ON)
 else()
   message(STATUS "compile project with src")
-  option(BUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG "Build ops-transformer with cann source" OFF)
+  option(BUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG "Build ops-transformer with can source" OFF)
 endif()
 
 if(UNIX)
@@ -98,7 +98,7 @@ set_directory_properties(PROPERTIES
     ADDITIONAL_MAKE_CLEAN_FILES "${CMAKE_BINARY_DIR}/_CPack_Packages"
 )
 
-# Suppress warnings from catlass/tla third-party headers for CANN kernel compilation
+# Suppress warnings from catlass/tla third-party headers for CAN kernel compilation
 set(VLLM_ASCEND_CANN_COMPAT_HEADER "${OPS_TRANSFORMER_DIR}/common/include/cann_compat.h")
 list(APPEND OPS_COMPILE_OPTIONS -Wno-ignored-attributes)
 list(APPEND OPS_COMPILE_OPTIONS -include${VLLM_ASCEND_CANN_COMPAT_HEADER})
@@ -182,7 +182,7 @@ if (BUILD_OPS_RTY_KERNEL)
             c_sec
     )
 
-    find_package(alog MODULE)
+    find_package(along MODULE)
 
     if(NOT ${alog_FOUND})
         add_definitions(-DALOG_NOT_FOUND)

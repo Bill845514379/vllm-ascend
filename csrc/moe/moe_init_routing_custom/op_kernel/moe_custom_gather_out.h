@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -176,7 +176,7 @@ __aicore__ inline void MoeGatherOut<T, EP>::CopyExpertIn(int64_t progress)
     DataCopyExtParams copyParams{1, static_cast<uint32_t>(curLoopElements_ * sizeof(int32_t)), 0, 0, 0};
     DataCopyPadExtParams<int32_t> padParams{false, 0, 0, 0};
     DataCopyPad(subRowIdxLocal, expandedRowIdxGm_[progress * curCorePerLoopIndicesElements_], copyParams, padParams);
-    expandedRowIdxCopyInQueue_.EnQue(subRowIdxLocal);
+    expandedRowIdxCopyInQueue_.enqueue(subRowIdxLocal);
 }
 
 template <typename T, const int EP>
@@ -186,7 +186,7 @@ __aicore__ inline void MoeGatherOut<T, EP>::CopyXIn(int64_t xSrcOffset, int64_t 
     DataCopyExtParams copyParams0{static_cast<uint16_t>(1), static_cast<uint32_t>(curLoopCols * sizeof(T)), 0, 0, 0};
     DataCopyPadExtParams<T> padParams0{false, 0, 0, 0};
     DataCopyPad(xLocal, xGm_[xSrcOffset], copyParams0, padParams0);
-    xCopyInQueue_.EnQue(xLocal);
+    xCopyInQueue_.enqueue(xLocal);
 }
 
 template <typename T, const int EP>
@@ -205,7 +205,7 @@ __aicore__ inline void MoeGatherOut<T, EP>::CopyScaleIn(int64_t scaleSrcOffset)
     DataCopyExtParams copyParams1{static_cast<uint16_t>(1), static_cast<uint32_t>(1 * sizeof(float)), 0, 0, 0};
     DataCopyPadExtParams<float> padParams1{false, 0, 0, 0};
     DataCopyPad(scaleLocal, xGscaleGm_[scaleSrcOffset], copyParams1, padParams1);
-    scaleCopyInQueue_.EnQue(scaleLocal);
+    scaleCopyInQueue_.enqueue(scaleLocal);
 }
 
 template <typename T, const int EP>

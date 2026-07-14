@@ -194,13 +194,13 @@ __aicore__ inline void KernelMoeTokenUnpermute<T1, T2, T3, PROBS>::CalMultiOutTo
     int64_t in_offset = out_offset * this->top_k;
     this->copyParams.blockLen = out_tokens_number * this->top_k * sizeof(T2);
     DataCopyPad(this->indicesLocal, this->indicesGM[in_offset], this->copyParams, this->extParams2);
-    this->indices_inque.template EnQue(this->indicesLocal);
+    this->indices_inque.template enqueue(this->indicesLocal);
 
     if constexpr (PROBS) {
         LocalTensor<T3> temp_probs_tensor = this->probs_inque.template AllocTensor<T3>();
         this->copyParams.blockLen = out_tokens_number * this->top_k * sizeof(T3);
         DataCopyPad(temp_probs_tensor, this->probsGM[in_offset], this->copyParams, this->extParams3);
-        this->probs_inque.template EnQue(temp_probs_tensor);
+        this->probs_inque.template enqueue(temp_probs_tensor);
         temp_probs_tensor = this->probs_inque.template DeQue<T3>();
         if constexpr (!IsSameType<T3, float>::value) {
             Cast(this->probs_tensor, temp_probs_tensor, RoundMode::CAST_NONE, out_tokens_number * this->top_k);
@@ -296,7 +296,7 @@ __aicore__ inline void KernelMoeTokenUnpermute<T1, T2, T3, PROBS>::CopyTokenIn(c
         DataCopyPad(tokensLocal, this->tokensGM[offset], this->copyParams, this->extParams1);
     }
 
-    this->tokens_inque.template EnQue(tokensLocal);
+    this->tokens_inque.template enqueue(tokensLocal);
 }
 
 template <typename T1, typename T2, typename T3, bool PROBS>
@@ -359,7 +359,7 @@ __aicore__ inline void KernelMoeTokenUnpermute<T1, T2, T3, PROBS>::CopyOut(const
         temp_out_tensors = this->token_tensor0;
     }
 
-    this->outque.template EnQue<T1>(temp_out_tensors);
+    this->outque.template enqueue<T1>(temp_out_tensors);
     temp_out_tensors = this->outque.template DeQue<T1>();
 
     int64_t offset = out_token_index * this->hidden_size + h_index * this->hidden_splited_length;

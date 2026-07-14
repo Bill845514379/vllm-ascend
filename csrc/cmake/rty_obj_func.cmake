@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -146,7 +146,7 @@ function(add_opmaster_ct_gentask_modules)
         exe_graph
         platform
         register
-        alog
+        along
         error_manager
         ops_utils_tiling
       -Wl,--as-needed
@@ -571,7 +571,7 @@ set(_op_tiling_link_libs
     exe_graph
     platform
     register
-    alog
+    along
     error_manager
     ops_utils_tiling
   -Wl,--as-needed

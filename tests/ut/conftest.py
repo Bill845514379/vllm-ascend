@@ -83,7 +83,7 @@ if not _npu_available:
         pass
     torch.npu = MagicMock()
     torch.npu.Stream = MagicMock
-    torch.version.cann = None
+    torch.version.can = None
     torch.distributed.is_hccl_available = MagicMock(return_value=True)
 
 import pytest

@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -111,7 +111,7 @@ public:
 #if __CCE_AICORE__ == 220 || (defined(__NPU_ARCH__) && __NPU_ARCH__ == 3003)
         LocalTensor<float> rstdLocal = outQueueRstd.AllocTensor<float>();
         ComputeRstd(xLocal, rstdLocal, calc_row_num);
-        outQueueRstd.EnQue<float>(rstdLocal);
+        outQueueRstd.enqueue<float>(rstdLocal);
         CopyOutRstd(i_o * rowFactor, calc_row_num);
 #else
         LocalTensor<float> rstdLocal = rstdBuf.Get<float>();
@@ -126,10 +126,10 @@ private:
     {
         LocalTensor<T> x1Local = inQueueX.AllocTensor<T>();
         DataCopyCustom<T>(x1Local, x1Gm[gm_bias], calc_row_num * numCol);
-        inQueueX.EnQue(x1Local);
+        inQueueX.enqueue(x1Local);
         LocalTensor<T> x2Local = inQueueX.AllocTensor<T>();
         DataCopyCustom<T>(x2Local, x2Gm[gm_bias], calc_row_num * numCol);
-        inQueueX.EnQue(x2Local);
+        inQueueX.enqueue(x2Local);
     }
 
     __aicore__ inline LocalTensor<T> ComputeX(uint32_t calc_row_num)
@@ -152,7 +152,7 @@ private:
         }
         inQueueX.FreeTensor(x1Local);
         inQueueX.FreeTensor(x2Local);
-        outQueueY.EnQue(xLocal);
+        outQueueY.enqueue(xLocal);
         PipeBarrier<PIPE_V>();
         return xLocal;
     }
@@ -169,11 +169,11 @@ private:
     {
         LocalTensor<T> gammaLocal = inQueueGamma.AllocTensor<T>();
         DataCopyCustom<T>(gammaLocal, gammaGm, numCol);
-        inQueueGamma.EnQue(gammaLocal);
+        inQueueGamma.enqueue(gammaLocal);
         if (!this->nullptrBeta) {
             LocalTensor<T> betaLocal = inQueueBeta.AllocTensor<T>();
             DataCopyCustom<T>(betaLocal, betaGm, numCol);
-            inQueueBeta.EnQue(betaLocal); 
+            inQueueBeta.enqueue(betaLocal); 
         }
     }
 
@@ -274,7 +274,7 @@ private:
           Cast(yLocal, yfp32, RoundMode::CAST_RINT, calc_row_num * numColAlign);
         }
         PipeBarrier<PIPE_V>();
-        outQueueY.EnQue<T>(yLocal);
+        outQueueY.enqueue<T>(yLocal);
     }
 
     __aicore__ inline void CopyOutY(uint32_t progress, uint32_t calc_row_num)

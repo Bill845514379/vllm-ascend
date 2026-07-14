@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify it.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -192,7 +192,7 @@ __aicore__ inline void LIVector<LIT>::CleanInvalidOutput(int64_t invalidS1offset
     LocalTensor<float> valueULocal = outQueue_.AllocTensor<float>();
     LocalTensor<int32_t> idxULocal1 = valueULocal.template ReinterpretCast<int32_t>();
     Duplicate(idxULocal1, constInfo_.INVALID_IDX, constInfo_.sparseCount);
-    outQueue_.EnQue<float>(valueULocal);
+    outQueue_.enqueue<float>(valueULocal);
     valueULocal = outQueue_.DeQue<float>();
     LIServiceVec::CopyOut(indiceOutGm[invalidS1offset], idxULocal1, constInfo_.sparseCount);
     outQueue_.FreeTensor(valueULocal);
@@ -260,7 +260,7 @@ __aicore__ inline void LIVector<LIT>::ProcessVec(const LICommon::RunInfo &info)
                                      weightGmOffset + innerS1Idx * gSize_ + outerGidx * groupInner_, procGnum,
                                      info.actualSingleProcessSInnerSizeAlign, mmUbStride);
 
-                inQueue_.EnQue<float>(mmInUb);
+                inQueue_.enqueue<float>(mmInUb);
                 mmInUb = inQueue_.DeQue<float>();
                 weightsInUb = mmInUb[procGnum * s2BaseSize_];
                 LIServiceVec::DoScale(reduceCacheBuf[REDUCE_BANK_CONFLICT_NUM], mmInUb, weightsInUb, weightsInTUb,
@@ -336,7 +336,7 @@ __aicore__ inline void LIVector<LIT>::ProcessVec(const LICommon::RunInfo &info)
                              BASE_TOPK);
                 PipeBarrier<PIPE_V>();
                 InitSortOutBuf(globalTopkUb_[innerS1Idx * BASE_TOPK * 2], BASE_TOPK * 2);
-                outQueue_.EnQue<float>(valueULocal);
+                outQueue_.enqueue<float>(valueULocal);
                 valueULocal = outQueue_.DeQue<float>();
                 LocalTensor<int32_t> idxULocal1 = valueULocal.template ReinterpretCast<int32_t>()[BASE_TOPK];
                 LIServiceVec::CopyOut(indiceOutGm[info.indiceOutOffset + cuS1Idx * constInfo_.sparseCount],

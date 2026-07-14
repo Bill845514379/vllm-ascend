@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -75,7 +75,7 @@ public:
                 CopyOut(gmOffset);
                 gmOffset += this->numLastDim;
             }
-            scalesQue.EnQue(scalesLocalOut);
+            scalesQue.enqueue(scalesLocalOut);
             CopyOutScale(gmOffsetReduce, ROW_FACTOR);
             gmOffsetReduce += ROW_FACTOR;
         }
@@ -89,7 +89,7 @@ public:
                 CopyOut(gmOffset);
                 gmOffset += this->numLastDim;
             }
-            scalesQue.EnQue(scalesLocalOut);
+            scalesQue.enqueue(scalesLocalOut);
             CopyOutScale(gmOffsetReduce, outLoopTail);
         }
     }
@@ -176,7 +176,7 @@ private:
             RoundFloat2IntQuant<T_Y>(y1Local, yLocalFp32, this->numLastDim);
         }
         PipeBarrier<PIPE_V>();
-        yQue.EnQue(yLocal);
+        yQue.enqueue(yLocal);
     }
 
     // srcTensor <- srcTensor / max(abs(srcTensor))
@@ -233,7 +233,7 @@ private:
         LocalTensor<T> xLocalIn = inRowsQue.template AllocTensor<T>();
         DataCopyEx(xLocalIn[0], this->xGm[gmOffset], this->numLastDim);
         DataCopyEx(xLocalIn[this->numLastDimAligned], this->gammaGm, this->numLastDim);
-        inRowsQue.EnQue(xLocalIn);
+        inRowsQue.enqueue(xLocalIn);
     }
 
     __aicore__ inline void CopyInSmooth()
@@ -241,7 +241,7 @@ private:
         if (this->oldDouble || this->newSingleSecond) {
             LocalTensor<T> smoothCopyIn = inRowsQue.template AllocTensor<T>();
             DataCopyEx(smoothCopyIn[0], this->smooth2Gm, this->numLastDim);
-            inRowsQue.EnQue(smoothCopyIn);
+            inRowsQue.enqueue(smoothCopyIn);
         }
     }
 
@@ -249,14 +249,14 @@ private:
     {
         LocalTensor<T> gammaCopyIn = inRowsQue.template AllocTensor<T>();
         DataCopyEx(gammaCopyIn[0], this->gammaGm, this->numLastDim);
-        inRowsQue.EnQue(gammaCopyIn);
+        inRowsQue.enqueue(gammaCopyIn);
     }
 
     __aicore__ inline void CopyInBeta()
     {
         LocalTensor<T> betaCopyIn = inRowsQue.template AllocTensor<T>();
         DataCopyEx(betaCopyIn[0], this->betaGm, this->numLastDim);
-        inRowsQue.EnQue(betaCopyIn);
+        inRowsQue.enqueue(betaCopyIn);
     }
 
 private:

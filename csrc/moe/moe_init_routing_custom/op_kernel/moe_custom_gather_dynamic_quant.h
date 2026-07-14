@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -104,7 +104,7 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyInExpandedE
     DataCopyPad(indicesLocal, expandedRowIdxGm_[indicesOffset_], dataCopyParams, dataCopyPadParams);
     DataCopyPad(indicesLocal[currentLoopRowsAlign_], expandedExpertIdxGm_[indicesOffset_], dataCopyParams,
                 dataCopyPadParams);
-    expandRowIdxInQueue_.EnQue<int32_t>(indicesLocal);
+    expandRowIdxInQueue_.enqueue<int32_t>(indicesLocal);
 }
 
 template <typename T, const int COPYOUTTYPE>
@@ -150,8 +150,8 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::Compute(LocalTe
     Cast(outLocal, intLocal.ReinterpretCast<half>(), RoundMode::CAST_TRUNC, cols_);
 
     calcQueue_.FreeTensor(tempLocal);
-    inputXOutQueue_.EnQue(outLocal);
-    scaleOutQueue_.EnQue(scaleLocal);
+    inputXOutQueue_.enqueue(outLocal);
+    scaleOutQueue_.enqueue(scaleLocal);
 }
 
 template <typename T, const int COPYOUTTYPE>
@@ -167,7 +167,7 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyOutXDynamic
     // copyin [1,H] scale
     if (smoothType_ == SCALE_1H) {
         DataCopyPad(smoothLocal, quantSmoothGm_, smoothParams, {false, 0, 0, 0});
-        smoothInQueue_.EnQue(smoothLocal);
+        smoothInQueue_.enqueue(smoothLocal);
         smoothLocal = smoothInQueue_.DeQue<float>();
     }
 
@@ -186,12 +186,12 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyOutXDynamic
         } else {
             DataCopyPad(inLocal[perLoopColsAlign_], inputXGm_[srcIdx / k_ * cols_], copyInParams, {false, 0, 0, 0});
         }
-        inputXInQueue_.EnQue<T>(inLocal);
+        inputXInQueue_.enqueue<T>(inLocal);
 
         // copyin dynamic scale
         if (smoothType_ == SCALE_EH && expertIdx != lastExpertIdx) {
             DataCopyPad(smoothLocal, quantSmoothGm_[expertIdx * this->cols_], smoothParams, {false, 0, 0, 0});
-            smoothInQueue_.EnQue(smoothLocal);
+            smoothInQueue_.enqueue(smoothLocal);
             smoothLocal = smoothInQueue_.DeQue<float>();
             lastExpertIdx = expertIdx;
         }
@@ -228,7 +228,7 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyOutXDynamic
 
     if (smoothType_ == SCALE_1H) {
         DataCopyPad(smoothLocal, quantSmoothGm_, smoothParams, {false, 0, 0, 0});
-        smoothInQueue_.EnQue(smoothLocal);
+        smoothInQueue_.enqueue(smoothLocal);
         smoothLocal = smoothInQueue_.DeQue<float>();
     }
 
@@ -239,7 +239,7 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyOutXDynamic
         } else {
             DataCopyPad(inLocal[perLoopColsAlign_], inputXGm_[row * cols_], copyInParams, {false, 0, 0, 0});
         }
-        inputXInQueue_.EnQue<T>(inLocal);
+        inputXInQueue_.enqueue<T>(inLocal);
         Compute(smoothLocal);
         LocalTensor<float> scaleLocal = scaleOutQueue_.DeQue<float>();
         LocalTensor<int8_t> outLocal = inputXOutQueue_.DeQue<int8_t>();
@@ -281,13 +281,13 @@ MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::ComputeMax(LocalTensor<float> &inLocal
         DataCopyPad(inLocal, inputXGm_[srcIdx * cols_ + j * perLoopCols_], intriParamsT, {false, 0, 0, 0});
     }
 
-    inputXInQueue_.EnQue<float>(inLocal);
+    inputXInQueue_.enqueue<float>(inLocal);
     inLocal = inputXInQueue_.DeQue<float>();
 
     if (isInputScale_) {
         DataCopyPad(smoothLocal, quantSmoothGm_[expertIdx * cols_ + j * perLoopCols_], intriParamsFp32,
                     {false, 0, 0, 0});
-        smoothInQueue_.EnQue(smoothLocal);
+        smoothInQueue_.enqueue(smoothLocal);
         smoothLocal = smoothInQueue_.DeQue<float>();
     }
 
@@ -323,7 +323,7 @@ MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::ComputeScale(LocalTensor<float> &inLoc
     LocalTensor<int8_t> outLocal = inputXOutQueue_.AllocTensor<int8_t>();
 
     DataCopyPad(inLocal, quantTempGm_[j * perLoopCols_], copyInParams, {false, 0, 0, 0});
-    inputXInQueue_.EnQue<float>(inLocal);
+    inputXInQueue_.enqueue<float>(inLocal);
     inLocal = inputXInQueue_.DeQue<float>();
 
     Duplicate<float>(tempLocal, scaleTemp, colsTileLength_);
@@ -337,7 +337,7 @@ MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::ComputeScale(LocalTensor<float> &inLoc
 
     Cast(outLocal, tempLocal.ReinterpretCast<half>(), RoundMode::CAST_ROUND, colsTileLength_);
 
-    inputXOutQueue_.EnQue(outLocal);
+    inputXOutQueue_.enqueue(outLocal);
     outLocal = inputXOutQueue_.DeQue<int8_t>();
     DataCopyPad(expandedXGm_[dstIndex * cols_ + j * perLoopCols_], outLocal, copyOutParams);
 
@@ -381,7 +381,7 @@ MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyOutXPartialDynamicQuantFromScatter
 
         float scaleTemp = reduceMax / MAX_INT8;
         Duplicate<float>(scaleLocal, scaleTemp, INT32_ONE_BLOCK_NUM);
-        scaleOutQueue_.EnQue(scaleLocal);
+        scaleOutQueue_.enqueue(scaleLocal);
         scaleLocal = scaleOutQueue_.DeQue<float>();
 
         DataCopyPad(expandedScaleGm_[(rowOffset + i)], scaleLocal, {1, 4, 0, 0, 0});
@@ -429,7 +429,7 @@ __aicore__ inline void MoeGatherOutDynamicQuant<T, COPYOUTTYPE>::CopyOutXPartial
 
         float scaleTemp = reduceMax / MAX_INT8;
         Duplicate<float>(quantScaleLocal, scaleTemp, INT32_ONE_BLOCK_NUM);
-        scaleOutQueue_.EnQue(quantScaleLocal);
+        scaleOutQueue_.enqueue(quantScaleLocal);
         quantScaleLocal = scaleOutQueue_.DeQue<float>();
 
         while (curIndex < currentLoopRows_ && (curIndex + rowOffset) / k_ == row) {

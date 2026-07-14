@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -46,7 +46,7 @@ __aicore__ inline void MoeSortOneCore::CopyIn()
     DataCopyPad(inLocal[0], expertIdxGm, dataCopyParams, dataCopyPadParams);
     LocalTensor<int32_t> rowIdxLocal = inLocal[this->sortNum];
     ArithProgression<int32_t>(rowIdxLocal, 0, 1, this->sortNum);
-    sortDataCopyInQueue.EnQue(inLocal);
+    sortDataCopyInQueue.enqueue(inLocal);
 }
 
 __aicore__ inline void MoeSortOneCore::SortCompute()
@@ -97,7 +97,7 @@ __aicore__ inline void MoeSortOneCore::SortCompute()
     LocalTensor<int32_t> expertForSourceRowLocalInt32;
     expertForSourceRowLocalInt32 = sortedExpertForSourceRowLocal.ReinterpretCast<int32_t>();
     Cast(expertForSourceRowLocalInt32, sortedExpertForSourceRowLocal, RoundMode::CAST_ROUND, this->tileLength);
-    sortDataCopyOutQueue.EnQue<float>(outLocal);
+    sortDataCopyOutQueue.enqueue<float>(outLocal);
     sortDataCopyInQueue.FreeTensor(inLocal);
 }
 

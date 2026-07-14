@@ -135,7 +135,7 @@ __aicore__ inline void TopKCustom(const LocalTensor<T> &dstValueLocal, const Loc
 {
     LocalTensor<bool> finishLocal;
     AscendC::TopKInfo topkInfo;
-    topkInfo.outter = tiling.params.outer;
+    topkInfo.outer = tiling.params.outer;
     topkInfo.n = n;
     topkInfo.inner = matmul::CeilDiv(n, 32) * 32; /* 32: inner must be aligned to 32 */
     TopK<half, true, false, false, TopKMode::TOPK_NORMAL>(dstValueLocal, dstIndexLocal, srcValueLocal, srcIndexLocal, finishLocal, k, tiling.topkTiling, topkInfo, true);

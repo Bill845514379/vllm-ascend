@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -86,7 +86,7 @@ __aicore__ inline void MoeV2FullLoadQuantBase::CopyIn() {
   DataCopyPadExtParams<int32_t> dataCopyPadParams{false, 0, 0, 0};
   DataCopyPad(inLocal[0], expertIdxGm, dataCopyParams, dataCopyPadParams);
   ArithProgression<int32_t>(inLocal[this->sortNum], 0, 1, this->totalLength);
-  sortDataCopyInQueue.EnQue(inLocal);
+  sortDataCopyInQueue.enqueue(inLocal);
 }
 
 __aicore__ inline void MoeV2FullLoadQuantBase::SortCompute() {
@@ -129,7 +129,7 @@ __aicore__ inline void MoeV2FullLoadQuantBase::SortCompute() {
   expandedExpertIdxLocalInt32 = expandedExpertIdxLocal.ReinterpretCast<int32_t>();
   Cast(expandedExpertIdxLocalInt32, expandedExpertIdxLocal, RoundMode::CAST_ROUND, this->totalLength);
   pipe_barrier(PIPE_V);
-  expandedExpertIdxCopyOutQueue.EnQue<int32_t>(expandedExpertIdxLocalInt32);
+  expandedExpertIdxCopyOutQueue.enqueue<int32_t>(expandedExpertIdxLocalInt32);
 
   LocalTensor<uint32_t> expandedRowIdx = expandedRowIdxCopyOutQueue.AllocTensor<uint32_t>();
   LocalTensor<uint32_t> expandedRowIdxU32 = expandedRowIdx.ReinterpretCast<uint32_t>();
@@ -152,7 +152,7 @@ __aicore__ inline void MoeV2FullLoadQuantBase::SortCompute() {
   pipe_barrier(PIPE_V);
   Extract(tempTensor, expandedRowIdxU32, sortedLocal, this->sortNum / ONE_REPEAT_SORT_NUM);
   pipe_barrier(PIPE_V);
-  expandedRowIdxCopyOutQueue.EnQue<uint32_t>(expandedRowIdx);
+  expandedRowIdxCopyOutQueue.enqueue<uint32_t>(expandedRowIdx);
   sortDataCopyInQueue.FreeTensor(inLocal);
 
   expandDstToSrcRowQueue.FreeTensor(expandDstToSrcRowLocal);
@@ -164,7 +164,7 @@ __aicore__ inline void MoeV2FullLoadQuantBase::CopyOutIdx() {
   intriParams.blockCount = 1;
   intriParams.blockLen = this->totalLength * sizeof(int32_t);
   DataCopyPad(expandedRowIdxGm, expandedRowIdx, intriParams);
-  expandedRowIdxCopyOutQueue.EnQue(expandedRowIdx);
+  expandedRowIdxCopyOutQueue.enqueue(expandedRowIdx);
 }
 
 __aicore__ inline void MoeV2FullLoadQuantBase::ComputeExpertTokenCountOrCumsum() {

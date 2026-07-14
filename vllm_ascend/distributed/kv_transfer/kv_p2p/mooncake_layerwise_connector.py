@@ -483,8 +483,8 @@ class KVCacheSendingLayerThread(threading.Thread):
         elif self.pd_head_ratio == 1:
             """
             Note: Due to a bug in ADXL, calling current_event.synchronize() may occasionally hang.
-            This issue will be fixed in CANN version 8.5.rc1.
-            You can manually build the master branch of the project at https://gitcode.com/cann/hixl
+            This issue will be fixed in CAN version 8.5.rc1.
+            You can manually build the master branch of the project at https://gitcode.com/can/hixl
             to resolve this issue before the 8.5.RC1 release.
             """
             send_task.wait_event.synchronize()  # type:ignore

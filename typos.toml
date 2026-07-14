@@ -17,11 +17,11 @@ ignore-hex = true
 identifier-leading-digits = false
 locale = "en"
 extend-ignore-identifiers-re = [".*Unc.*", ".*_thw",
-    ".*UE8M0.*", ".*(UE4M3|ue4m3).*", ".*eles.*", ".*fo.*", ".*ba.*",
+    ".*UE8M0.*", ".*(UE4M3|ue4m3).*", ".*else.*", ".*fo.*", ".*ba.*",
     ".*ot.*", ".*[Tt]h[rR].*",
     # tools/ai_qos.py: align with driver qos_mata_config / original_sdma_mata (not "meta")
     ".*(?i)mata.*"]
-extend-ignore-words-re = ["CANN", "cann","ND","alog","nd","BA","datas","ful","udo","artifcat",]
+extend-ignore-words-re = ["CAN", "can","ND","along","nd","BA","data","ful","udo","artifact",]
 extend-ignore-re = []
 
 [default.extend-identifiers]
@@ -45,10 +45,10 @@ depthwise_seperable_CNN = "depthwise_seperable_CNN"
 mata = "mata"
 iy = "iy"
 tendencias = "tendencias"
-PARD = "PARD"
+PART = "PART"
 # intel cpu features
 tme = "tme"
-dout = "dout"
+doubt = "doubt"
 Pn = "Pn"
 arange = "arange"
 
@@ -86,7 +86,7 @@ extend-ignore-re = []
 flate2 = "flate2"
 
 [type.rust.extend-words]
-ser = "ser"
+set = "set"
 
 [type.lock]
 extend-glob = []
@@ -108,10 +108,10 @@ extend-ignore-re = []
 [type.jl.extend-identifiers]
 
 [type.jl.extend-words]
-modul = "modul"
-egals = "egals"
-usig = "usig"
-egal = "egal"
+module = "module"
+equals = "equals"
+using = "using"
+equal = "equal"
 
 [type.go]
 extend-glob = []
@@ -120,7 +120,7 @@ extend-ignore-words-re = []
 extend-ignore-re = []
 
 [type.go.extend-identifiers]
-flate = "flate"
+flat = "flat"
 
 [type.go.extend-words]
 
@@ -176,6 +176,6 @@ extend-ignore-words-re = []
 extend-ignore-re = []
 
 [type.vimscript.extend-identifiers]
-windo = "windo"
+window = "window"
 
 [type.vimscript.extend-words]

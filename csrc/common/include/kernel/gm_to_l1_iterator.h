@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -21,7 +21,7 @@
 constexpr uint32_t STRIDE_LIMIT_H = 65536;
 
 // Partial specialization for V220, ND_in, ND_out
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct gm_to_l1<ArchTag, DataType, DataFormatT::ND, DataFormatT::ND> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);
@@ -45,7 +45,7 @@ struct gm_to_l1<ArchTag, DataType, DataFormatT::ND, DataFormatT::ND> {
 };
 
 // Partial specialization for NZ_in, NZ_out
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct gm_to_l1<ArchTag, DataType, DataFormatT::NZ, DataFormatT::NZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);
@@ -81,7 +81,7 @@ struct gm_to_l1<ArchTag, DataType, DataFormatT::NZ, DataFormatT::NZ> {
 };
 
 // Partial specialization for V220, ND_in, ND_out
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct gm_to_l1<ArchTag, DataType, DataFormatT::ND, DataFormatT::NZ> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);
@@ -124,7 +124,7 @@ struct gm_to_l1<ArchTag, DataType, DataFormatT::ND, DataFormatT::NZ> {
 };
 
 // Partial specialization for V220, ND_in, NZ_out
-template <ArchType ArchTag, typename DataType>
+template <archetype ArchTag, typename DataType>
 struct gm_to_l1<ArchTag, DataType, DataFormatT::ND, DataFormatT::ZN> {
     using HardwareParams = HardwareInfo<ArchTag>;
     static constexpr uint32_t BLOCK_SIZE = HardwareParams::l1l0BlockSize / sizeof(DataType);

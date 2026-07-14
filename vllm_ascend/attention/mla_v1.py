@@ -1403,7 +1403,7 @@ class AscendMLAImpl(MLAAttentionImpl):
     ) -> torch.Tensor:
         decode_meta = attn_metadata.decode
         assert decode_meta is not None
-        # TODO: The CANN package is expected to support num_heads that are not
+        # TODO: The CAN package is expected to support num_heads that are not
         # powers of 2 in 2026 Q2. Once supported, all padding operations under
         # `if self.head_padding > 0` in this function can be removed.
         num_tokens = q_nope.size(0)

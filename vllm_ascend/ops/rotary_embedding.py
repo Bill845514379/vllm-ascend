@@ -522,7 +522,7 @@ class AscendMRotaryEmbedding(MRotaryEmbedding):
         key: torch.Tensor,
     ):
         if HAS_TRITON and positions.ndim == 2 and self.mrope_interleaved:
-            # todo: need cann update in 8.5.0
+            # todo: need can update in 8.5.0
             return self.forward_triton(positions, query, key)
 
         if self.mrope_section != [16, 24, 24]:
@@ -579,9 +579,7 @@ class AscendApplyRotaryEmb(ApplyRotaryEmb):
         head_dim = x.shape[-1]
         rotary_dim = cos.shape[-1] * 2
         if rotary_dim > head_dim:
-            raise ValueError(
-                f"rotary_dim ({rotary_dim}) must not exceed head_dim ({head_dim})"
-            )
+            raise ValueError(f"rotary_dim ({rotary_dim}) must not exceed head_dim ({head_dim})")
 
         # cos, sin: [seq_len, rotary_dim // 2]
         cos = torch.cat((cos, cos), dim=-1)

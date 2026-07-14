@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -470,7 +470,7 @@ __aicore__ inline void CamMoeDistributeCombine<TemplateMC2TypeFunc>::ReduceScatt
     for (uint32_t tokenNumIdx = copyStartIdx; tokenNumIdx < copyEndIdx; tokenNumIdx++) {
         tmpUb = moeQueue_.AllocTensor<ExpandXType>();
         DataCopy(tmpUb, dataCopyInGM[tokenNumIdx * axisH_], axisH_);
-        moeQueue_.EnQue(tmpUb);
+        moeQueue_.enqueue(tmpUb);
         tmpUb = moeQueue_.DeQue<ExpandXType>();
         DataCopy(rankWindow_[tokenNumIdx * axisH_], tmpUb, axisH_);
         moeQueue_.FreeTensor<ExpandXType>(tmpUb);
@@ -564,11 +564,11 @@ __aicore__ inline void CamMoeDistributeCombine<TemplateMC2TypeFunc>::ExpertAllto
         if constexpr (IsNeedReduceScatter) {
             gmTpSendCountTensor_ = gmTpSendCountInQueue_.AllocTensor<ExpandXType>();
             DataCopy(gmTpSendCountTensor_, expandXGM_[srcStartTokenIdx], dataCnt);
-            gmTpSendCountInQueue_.EnQue(gmTpSendCountTensor_);
+            gmTpSendCountInQueue_.enqueue(gmTpSendCountTensor_);
 
             winTpSendCountTensor_ = winTpSendCountInQueue_.AllocTensor<ExpandXType>();
             DataCopy(winTpSendCountTensor_, tpRankWindow_[srcStartTokenIdx], dataCnt);
-            winTpSendCountInQueue_.EnQue(winTpSendCountTensor_);
+            winTpSendCountInQueue_.enqueue(winTpSendCountTensor_);
 
             gmTpSendCountTensor_ = gmTpSendCountInQueue_.DeQue<ExpandXType>();
             winTpSendCountTensor_ = winTpSendCountInQueue_.DeQue<ExpandXType>();
@@ -577,7 +577,7 @@ __aicore__ inline void CamMoeDistributeCombine<TemplateMC2TypeFunc>::ExpertAllto
             CustomAdd(outTensor_, winTpSendCountTensor_, gmTpSendCountTensor_, dataCnt);
             gmTpSendCountInQueue_.FreeTensor<ExpandXType>(gmTpSendCountTensor_);
             winTpSendCountInQueue_.FreeTensor<ExpandXType>(winTpSendCountTensor_);
-            xOutQueue_.EnQue(outTensor_);
+            xOutQueue_.enqueue(outTensor_);
 
             outTensor_ = xOutQueue_.DeQue<ExpandXType>();
             DataCopy(rankWindow_[loopIdx * dataCnt], outTensor_, dataCnt);
@@ -586,7 +586,7 @@ __aicore__ inline void CamMoeDistributeCombine<TemplateMC2TypeFunc>::ExpertAllto
             gmTpSendCountTensor_ = gmTpSendCountQueue_.AllocTensor<ExpandXType>();
             DataCopy(gmTpSendCountTensor_, expandXGM_[srcStartTokenIdx], dataCnt);
             ExpandXType val = expandXGM_[srcStartTokenIdx].GetValue(0);
-            gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
+            gmTpSendCountQueue_.enqueue(gmTpSendCountTensor_);
             gmTpSendCountTensor_ = gmTpSendCountQueue_.DeQue<ExpandXType>();
             DataCopy(rankWindow_[loopIdx * dataCnt], gmTpSendCountTensor_, dataCnt);
             gmTpSendCountQueue_.FreeTensor<ExpandXType>(gmTpSendCountTensor_);
@@ -745,7 +745,7 @@ __aicore__ inline void CamMoeDistributeCombine<TemplateMC2TypeFunc>::LocalWindow
             ExpandXType val = rowTmpGlobal_.GetValue(0);
             LocalTensor<ExpandXType> tmpUb = moeSumQueue_.AllocTensor<ExpandXType>();
             DataCopy(tmpUb, rowTmpGlobal_, processLen);
-            moeSumQueue_.EnQue(tmpUb);
+            moeSumQueue_.enqueue(tmpUb);
             tmpUb = moeSumQueue_.DeQue<ExpandXType>();
             Cast(rowTmpFloatLocal, tmpUb, AscendC::RoundMode::CAST_NONE, processLen);
             AscendC::PipeBarrier<PIPE_V>();

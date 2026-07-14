@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -268,7 +268,7 @@ __aicore__ inline void InterleavedSplitS<T>::Compute(uint32_t loopIdx, LocalTens
     InterleavedInversion(x, calcTotalNum);
     Add(y, y, x, calcTotalNum);
     inQueX.FreeTensor(x);
-    outQueY.EnQue(y);
+    outQueY.enqueue(y);
 }
 
 template <typename T>
@@ -305,7 +305,7 @@ __aicore__ inline void InterleavedSplitS<T>::ComputeCastFp32(uint32_t loopIdx, L
 
     LocalTensor<T> yTensor = outQueY.AllocTensor<T>();
     Cast(yTensor, tmp32Buf3, RoundMode::CAST_RINT, calcTotalNum);
-    outQueY.EnQue(yTensor);
+    outQueY.enqueue(yTensor);
 }
 
 } // namespace RotateInterleavedN

@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -122,7 +122,7 @@ template <typename T0, typename U, typename T1>
                 SetFlag<HardEvent::S_MTE3>(eventId);
                 WaitFlag<HardEvent::S_MTE3>(eventId);
             }
-            xQue.template EnQue(xLocal);
+            xQue.template enqueue(xLocal);
             xLocal = xQue.template DeQue<T0>();
 
             kvCacheLocal = kvCacheQue.template AllocTensor<T1>();
@@ -157,7 +157,7 @@ template <typename T0, typename U, typename T1>
 
             xQue.template FreeTensor(xLocal);
 
-            kvCacheQue.template EnQue(kvCacheLocal);
+            kvCacheQue.template enqueue(kvCacheLocal);
             kvCacheLocal = kvCacheQue.template DeQue<T1>();
 
             if (tilingData->layout == 2 && tilingData->quantMode == QUANT_MDOE_GROUP_MXFP8) {

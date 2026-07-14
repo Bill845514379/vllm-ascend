@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -79,11 +79,11 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::AssistInit()
     if constexpr (IsSameType<T, int8_t>::value) {
         LocalTensor<int16_t> outLocal = copyOutZeroQueue.AllocTensor<int16_t>();
         Duplicate<int16_t>(outLocal, static_cast<int16_t>(0), this->perLoopCols);
-        copyOutZeroQueue.EnQue<int16_t>(outLocal);
+        copyOutZeroQueue.enqueue<int16_t>(outLocal);
     } else {
         LocalTensor<T> outLocal = copyOutZeroQueue.AllocTensor<T>();
         Duplicate<T>(outLocal, static_cast<T>(0), this->perLoopCols);
-        copyOutZeroQueue.EnQue<T>(outLocal);
+        copyOutZeroQueue.enqueue<T>(outLocal);
     }
 
     if (this->blockIdx != 0) {
@@ -107,7 +107,7 @@ __aicore__ inline void MoeV2SrcToDstWithCapacity<T, TilingData>::CopyIn(int64_t 
     int64_t length = Align(currentLoopRows, sizeof(int32_t));
     DataCopy(inLocal, expandDstToSrcRowGm[progress * perLoopRows], length);
     DataCopy(inLocal[length], expandedExpertIdxGm[progress * perLoopRows], length);
-    copyInQueue.EnQue<int32_t>(inLocal);
+    copyInQueue.enqueue<int32_t>(inLocal);
 }
 
 template <typename T, typename TilingData>

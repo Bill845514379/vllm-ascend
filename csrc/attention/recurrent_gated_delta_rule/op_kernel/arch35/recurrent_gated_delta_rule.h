@@ -230,7 +230,7 @@ private:
             SetFlag<HardEvent::V_MTE2>(evevtIdVtoMte2);
             WaitFlag<HardEvent::V_MTE2>(evevtIdVtoMte2);
             DataCopyPad(gamaKLocal, gamaKGm_[vOffset / realV_ * realK_], gkInParams, gkPadParams);
-            gamaKInQueue_.EnQue<float>(gamaKLocal);
+            gamaKInQueue_.enqueue<float>(gamaKLocal);
             gamaKInUb = gamaKInQueue_.DeQue<float>();
             Exp(gamaKInUb, gamaKInUb, alignK_ * seqLen);
             AscendC::PipeBarrier<PIPE_V>();
@@ -238,9 +238,9 @@ private:
         DataCopyPad(qLocal, queryGm_[qkOffset], qkInParams, qkPadParams);
         DataCopyPad(kLocal, keyGm_[qkOffset], qkInParams, qkPadParams);
         DataCopyPad(vLocal, valueGm_[vOffset], vInParams, vPadParams);
-        qInQueue_.EnQue<inType>(qLocal);
-        kInQueue_.EnQue<inType>(kLocal);
-        vInQueue_.EnQue<inType>(vLocal);
+        qInQueue_.enqueue<inType>(qLocal);
+        kInQueue_.enqueue<inType>(kLocal);
+        vInQueue_.enqueue<inType>(vLocal);
         qLocal = qInQueue_.DeQue<inType>();
         kLocal = kInQueue_.DeQue<inType>();
         vLocal = vInQueue_.DeQue<inType>();
@@ -261,7 +261,7 @@ private:
                                         static_cast<uint16_t>(realK_ * sizeof(stateType)), 0, 0, 0};
         DataCopyPadExtParams<stateType> padParams{true, 0, static_cast<uint8_t>(alignK_ - realK_), 0};
         DataCopyPad(stateLocal, initStateGm_[stateOffest], stateInParams, padParams);
-        stateInQueue_.EnQue<stateType>(stateLocal);
+        stateInQueue_.enqueue<stateType>(stateLocal);
     }
 
     __aicore__ inline void LoadPrefetchedState(uint32_t curSingleV)
@@ -445,9 +445,9 @@ private:
         } else {
             Cast(stateOutLocal, stateInUb, AscendC::RoundMode::CAST_RINT, alignK_ * curSingleV);
         }
-        stateOutQueue_.EnQue<stateType>(stateOutLocal);
+        stateOutQueue_.enqueue<stateType>(stateOutLocal);
         Cast(attnOutLocal, attnInUb, AscendC::RoundMode::CAST_RINT, curSingleV);
-        attnOutQueue_.EnQue<outType>(attnOutLocal);
+        attnOutQueue_.enqueue<outType>(attnOutLocal);
     }
 
     __aicore__ inline void CopyOutAttn(uint64_t attnOffset, uint32_t curSingleV)
@@ -474,7 +474,7 @@ private:
         DataCopyParams betaInParams{1, static_cast<uint16_t>(seqLen * NV_ * sizeof(inType)), 0, 0};
         DataCopyPadParams padParams;
         DataCopyPad(betaLocal, betaGm_[seq0 * NV_], betaInParams, padParams);
-        betaInQueue_.EnQue<inType>(betaLocal);
+        betaInQueue_.enqueue<inType>(betaLocal);
         betaLocal = betaInQueue_.DeQue<inType>();
         Cast(betaInUb, betaLocal, AscendC::RoundMode::CAST_NONE, seqLen * NV_);
         betaInQueue_.FreeTensor(betaLocal);
@@ -482,7 +482,7 @@ private:
             LocalTensor<float> gamaLocal = gamaInQueue_.AllocTensor<float>();
             DataCopyParams gamaInParams{1, static_cast<uint16_t>(seqLen * NV_ * sizeof(float)), 0, 0};
             DataCopyPad(gamaLocal, gamaGm_[seq0 * NV_], gamaInParams, padParams);
-            gamaInQueue_.EnQue<float>(gamaLocal);
+            gamaInQueue_.enqueue<float>(gamaLocal);
             gamaInUb = gamaInQueue_.DeQue<float>();
             Exp(gamaInUb, gamaInUb, seqLen * NV_);
             AscendC::PipeBarrier<PIPE_V>();

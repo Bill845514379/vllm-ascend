@@ -183,7 +183,7 @@ private:
             uint16_t blockLen = static_cast<uint16_t>(maxLoRARank_ * sizeof(X_T));
             DataCopyPad(xLocal, xGm_[maxLoRARank_ * idx], {1, blockLen, 0, 0}, {});
         }
-        inQueueX_.EnQue(xLocal);
+        inQueueX_.enqueue(xLocal);
         xLocal = inQueueX_.DeQue<X_T>();
         AscendC::LocalTensor<float> xDup = dupBufferX_.Get<float>();
 
@@ -214,14 +214,14 @@ private:
     {
         AscendC::LocalTensor<Y_T> yInLocal = inQueueY_.AllocTensor<Y_T>();
         DataCopy(yInLocal, yInGm_[yOffset_ + progress * Y_OUT_TILE_NUM_ELEMENTS], numElements);
-        inQueueY_.EnQue(yInLocal);
+        inQueueY_.enqueue(yInLocal);
     }
 
     __aicore__ inline void CopyInW(int32_t progress, int32_t numElements = W_IN_TILE_NUM_ELEMENTS)
     {
         AscendC::LocalTensor<W_T> wLocal = inQueueW_.AllocTensor<W_T>();
         DataCopy(wLocal, wGm_[reqLoRAWeightOffset_ + progress * W_IN_TILE_NUM_ELEMENTS], numElements);
-        inQueueW_.EnQue(wLocal);
+        inQueueW_.enqueue(wLocal);
     }
 
     __aicore__ inline void ScaleOutput(int32_t numElements = Y_OUT_TILE_NUM_ELEMENTS)
@@ -240,7 +240,7 @@ private:
         Cast(yOutLocal, yLocal, AscendC::RoundMode::CAST_RINT, numElements);
         AscendC::PipeBarrier<PIPE_V>();
 
-        outQueueY_.EnQue<Y_T>(yOutLocal);
+        outQueueY_.enqueue<Y_T>(yOutLocal);
     }
 
     __aicore__ inline void Compute(int32_t progress,

@@ -360,7 +360,6 @@ print(getattr(msg, "reasoning", None))  # the <mm:think> block
 print(msg.content)                       # the final answer
 ```
 
-
 ## Reasoning Parser
 
 The MiniMax-M3 reasoning parser (`--reasoning-parser minimax_m3`) extracts the thinking block `<mm:think>...</mm:think>` from model output and exposes it as the `reasoning` field. The remaining text is returned as `content`.
@@ -734,15 +733,16 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 |-------------------------------|------|--------------------|------|------|-----------------|------------------------|------|----------------------|------------------|-----------------|-------------------|-----------------|---------------|-------------------------------|--------------------|--------------------|---------------|---------------|---------------|---------------|---------------|
 | Minimax m3 | A2/A3 | ✅ | ✅ | ✖️ | ✅ | ✅ | - | - | ✅ | ✅ | - | ✅ | ✅ | ✖️ | ✖️ | ✅ | ✅ | ✖️ | ✅ | ✅ | 1M |
 
-* 请参阅 [特性指南](https://docs.vllm.ai/projects/ascend/en/latest/user_guide/support_matrix/supported_features.html) 获取特性配置说明。
-* 模型支持最长上下文长度为1M，A3单机BF16权重实测可达42K，A3单机W8A8权重实测可达128K。
+- 请参阅 [特性指南](https://docs.vllm.ai/projects/ascend/en/latest/user_guide/support_matrix/supported_features.html) 获取特性配置说明。
+- 模型支持最长上下文长度为1M，A3单机BF16权重实测可达42K，A3单机W8A8权重实测可达128K。
 
 ## Precision
+
 ### 使用 AISBench
 
 详细步骤请参阅 [使用 AISBench 进行性能评估](https://docs.vllm.ai/projects/ascend/en/latest/developer_guide/evaluation/using_ais_bench.html#execute-performance-evaluation)。
 
-| Dataset | Hardward | Score | max-model-len | max-num-seqs | max_out_len | batch_size | generation_kwargs |
+| Dataset | Hardware | Score | max-model-len | max-num-seqs | max_out_len | batch_size | generation_kwargs |
 |---------|----------|-------|---------------|--------------|-------------|------------|-------------------|
 | GSM8K   | GPU      | 96.72 | 65536         | 16           | 49152       | 16         | temperature=1.0, top_p=0.95 |
 | GSM8K   | NPU      | 96.36 | 10240         | 16           | 9500        | 20         | temperature=1.0, top_p=0.95 |
@@ -750,6 +750,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 | AIME2025 | NPU     | 90    | -             | -            | -           | -          | temperature=1.0, top_p=0.95 |
 
 ## FAQ
+
 - Q: 重装vLLM Ascend
 
   A: 可以使用如下命令重装vLLM Ascend，并直接使用当前 Python 环境里的依赖来构建
@@ -835,6 +836,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   如果日志中反复出现 `No available shared memory broadcast block found in 60 seconds`，通常表示 EngineCore 正在等待 worker 完成长耗时任务，例如图编译、权重量化、KV cache 量化或大 prefill 执行；它不是视频解码阶段的直接报错。
 
 ## 声明
+
 1）当前仅为尝鲜体验，性能优化中。<br>
 2）该补丁仅用于功能体验，多模态功能未充分验证，不建议直接用于生产环境。<br>
 3）本代码仓提到的数据集和模型仅作为示例，这些数据集和模型仅供您用于非商业目的，如您使用这些数据集和模型来完成示例，请您特别注意应遵守对应数据集和模型的License，如您因使用数据集或模型而产生侵权纠纷，华为不承担任何责任。<br>

@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -328,7 +328,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::InitBuffers(TPipe *pipe)
     LocalTensor<X_T> normweightInUb = inputQue1.AllocTensor<X_T>();
     LocalTensor<int32_t> gatherOffsetUb = gatherOffsetBuf.Get<int32_t>();
     DataCopy(normweightInUb, normWeightGm_, constInfo_.headDim); // 获取normWeight，常驻
-    inputQue1.EnQue(normweightInUb);
+    inputQue1.enqueue(normweightInUb);
     inputQue1.DeQue<X_T>();
     Cast(normWeightUb, normweightInUb, RoundMode::CAST_NONE, constInfo_.headDim);
     inputQue1.FreeTensor(normweightInUb);
@@ -500,7 +500,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::CopyInApe(const LocalTen
 
     uint64_t gmOffset = dStartIdx;
     DataCopyAlignGmToUb(apeUbTmp, apeGm_[gmOffset], copyRowCount, copyColCount, srcSingleRowCount, dstSingleRowCount);
-    inputQue1.EnQue(apeUbTmp);
+    inputQue1.enqueue(apeUbTmp);
     inputQue1.DeQue<T>();
     DataCopy(apeUb, apeUbTmp, coff_ * dDealSize * constInfo_.cmpRatio);
     inputQue1.FreeTensor(apeUbTmp);
@@ -637,7 +637,7 @@ CompressorBlockVectorPerf<COMP>::DataCopyWithOutputQue(const GlobalTensor<O> dst
                             copyColCount);
         PipeBarrier<PIPE_V>();
 
-        outputQue1.EnQue(outputUb);
+        outputQue1.enqueue(outputUb);
         outputQue1.DeQue<O>();
 
         DataCopyAlignUbToGm(dstGm[dstOffset], outputUb, curCopyRowCount, copyColCount, copyColCount, dstSingleRowCount);
@@ -1001,7 +1001,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::OverLapScoreKv(
     GlobalTensor<T> scoreDBMm1ResGm = scoreMm1ResGm_[info.c1v1DbIdx * constInfo_.dbSize];
     LocalTensor<T> scoreUb = inputQue1.AllocTensor<T>();
     FromWokrSpaceToUb(scoreUb, scoreDBMm1ResGm, originSliceInfo, statisticInfo, dStartIdx, dDealSize);
-    inputQue1.EnQue(scoreUb);
+    inputQue1.enqueue(scoreUb);
     inputQue1.DeQue<T>();
     overLapSliceIterator.Reset(originSliceInfo.bIdx, originSliceInfo.sIdx, 0U, 0U);
     overLapSliceIterator.SetNeedDealTcSize(needDealTcSize);
@@ -1024,7 +1024,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::OverLapScoreKv(
     LocalTensor<T> kvUb = inputQue1.AllocTensor<T>();
     FromWokrSpaceToUb(kvUb, kvDBMm1ResGm, originSliceInfo, statisticInfo, dStartIdx, dDealSize);
 
-    inputQue1.EnQue(kvUb);
+    inputQue1.enqueue(kvUb);
     inputQue1.DeQue<T>();
     overLapSliceIterator.Reset(originSliceInfo.bIdx, originSliceInfo.sIdx, 0U, 0U);
     overLapSliceIterator.SetNeedDealTcSize(needDealTcSize);
@@ -1062,7 +1062,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::DealVec1BaseBlock(
         PipeBarrier<PIPE_V>();
         KvMulReduceScore(kvLocal, scoreLocal, comperssoredUb, tmpUb, statisticInfo.compressorScCnt, dDealSize);
         PipeBarrier<PIPE_V>();
-        outputQue1.EnQue(comperssoredUb);
+        outputQue1.enqueue(comperssoredUb);
         outputQue1.DeQue<T>();
         GlobalTensor<T> resGm = vec1ResGm_[info.v1v2DbIdx * constInfo_.dbSize];
         CopyOutVec1Res(resGm, info, comperssoredUb, statisticInfo.compressorScCnt, dStartIdx, dDealSize);
@@ -1251,7 +1251,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::DealVec2BaseBlock(const 
     // CopyIn
     LocalTensor<T> vec1ResUb = inputQue1.AllocTensor<T>();
     DataCopy(vec1ResUb, vec2InputGm[inGmOffset], computeSize);
-    inputQue1.EnQue(vec1ResUb);
+    inputQue1.enqueue(vec1ResUb);
     inputQue1.DeQue<T>();
 
     // RmsNorm
@@ -1269,7 +1269,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::DealVec2BaseBlock(const 
     CalRope(outputUb, normResUb, dealRowCount);
     PipeBarrier<PIPE_V>();
     // CopyOut
-    outputQue1.EnQue(outputUb);
+    outputQue1.enqueue(outputUb);
     outputQue1.DeQue<X_T>();
     CopyFinalResultOut(info, outputUb, startRow - v2TcStartIdx, dealRowCount);
     outputQue1.FreeTensor(outputUb);
@@ -1302,7 +1302,7 @@ __aicore__ inline void CompressorBlockVectorPerf<COMP>::SingleCalRope(const Loca
     LocalTensor<ROPE_T> sinUb = cosUb[BUFFER_SIZE_BYTE_16K / sizeof(ROPE_T)];
     DataCopy(cosUb, ropeCosGm_[SinCosOffset], computeSize);
     DataCopy(sinUb, ropeSinGm_[SinCosOffset], computeSize);
-    inputQue1.EnQue(sinUb);
+    inputQue1.enqueue(sinUb);
     inputQue1.DeQue<ROPE_T>();
 
     LocalTensor<T> ropeCosFp32Local = tmpBuff2.Get<T>();

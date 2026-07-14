@@ -339,7 +339,7 @@ class AscendGatedDeltaNetAttention(GatedDeltaNetAttention):
             query_spec = l2norm_fwd(query_spec)
             key_spec = l2norm_fwd(key_spec)
             # Dispatches to the vllm-ascend AscendC custom operator
-            # (csrc/recurrent_gated_delta_rule), NOT the built-in CANN operator.
+            # (csrc/recurrent_gated_delta_rule), NOT the built-in CAN operator.
             # The custom op extends dtype support (e.g. float32 state) and is
             # loaded at runtime via ASCEND_CUSTOM_OPP_PATH.
             core_attn_out_spec = torch.ops._C_ascend.npu_recurrent_gated_delta_rule(
@@ -423,7 +423,7 @@ class AscendGatedDeltaNetAttention(GatedDeltaNetAttention):
             query_non_spec = l2norm_fwd(query_non_spec)
             key_non_spec = l2norm_fwd(key_non_spec)
             # Dispatches to the vllm-ascend AscendC custom operator
-            # (csrc/recurrent_gated_delta_rule), NOT the built-in CANN operator.
+            # (csrc/recurrent_gated_delta_rule), NOT the built-in CAN operator.
             core_attn_out_non_spec = torch.ops._C_ascend.npu_recurrent_gated_delta_rule(
                 query=query_non_spec.squeeze(0),
                 key=key_non_spec.squeeze(0),

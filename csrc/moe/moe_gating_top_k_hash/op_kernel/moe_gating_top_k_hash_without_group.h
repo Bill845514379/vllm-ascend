@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -119,7 +119,7 @@ __aicore__ inline void MoeGatingTopKHashWithoutGroup<T, U1, U2>::CopyInX(int64_t
         DataCopyPad(xInLocalTensor[expertCountAlign_].ReinterpretCast<T>(), xGm_[row * expertCount_], dataCopyParams,
                     dataCopyPadParams);
     }
-    xInQueue_.EnQue(xInLocalTensor);
+    xInQueue_.enqueue(xInLocalTensor);
 }
 
 template <typename T, typename U1, typename U2>
@@ -201,7 +201,7 @@ __aicore__ inline void MoeGatingTopKHashWithoutGroup<T, U1, U2>::CopuOutXNorm(in
     LocalTensor<float> outOutTensor = outOutQueue_.AllocTensor<float>();
     LocalTensor<float> xNormTensor = xNormBuf_.Get<float>();
     DataCopy(outOutTensor, xNormTensor, expertCountAlign_);
-    outOutQueue_.EnQue<float>(outOutTensor);
+    outOutQueue_.enqueue<float>(outOutTensor);
     outOutTensor = outOutQueue_.DeQue<float>();
     DataCopyExtParams dataCopyParams{1, static_cast<uint32_t>(expertCount_ * sizeof(float)), 0, 0, 0};
     DataCopyPad(outGm_[row * expertCount_], outOutTensor, dataCopyParams);
@@ -234,7 +234,7 @@ __aicore__ inline void MoeGatingTopKHashWithoutGroup<T, U1, U2>::SelectTopKExper
                static_cast<uint32_t>(0), gatherMaskParams, rsvdCnt);
 
     DataCopy(expertIdxOut, topKExpertId, expertCountAlign_);
-    expertIdxOutQueue_.EnQue<int32_t>(expertIdxOut);
+    expertIdxOutQueue_.enqueue<int32_t>(expertIdxOut);
 }
 
 template <typename T, typename U1, typename U2>
@@ -274,7 +274,7 @@ __aicore__ inline void MoeGatingTopKHashWithoutGroup<T, U1, U2>::SelectTopKExper
         Cast(yOutTensor.ReinterpretCast<T>(), yOutTensor, RoundMode::CAST_RINT, k_);
     }
 
-    yOutQueue_.EnQue<float>(yOutTensor);
+    yOutQueue_.enqueue<float>(yOutTensor);
 }
 
 template <typename T, typename U1, typename U2>
@@ -309,7 +309,7 @@ __aicore__ inline void MoeGatingTopKHashWithoutGroup<T, U1, U2>::SelectExpertIdx
       PipeBarrier<PIPE_V>();
       DataCopy(expertIdxOut, hashExpertIdInt32, Align(k_, sizeof(int32_t)));
     }
-    expertIdxOutQueue_.EnQue<int32_t>(expertIdxOut);
+    expertIdxOutQueue_.enqueue<int32_t>(expertIdxOut);
 }
 
 template <typename T, typename U1, typename U2>

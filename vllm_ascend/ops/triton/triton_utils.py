@@ -9,7 +9,7 @@ _extension_module = None
 
 if HAS_TRITON:
     try:
-        import triton.language.extra.cann.extension as _extension_module  # type: ignore
+        import triton.language.extra.can.extension as _extension_module  # type: ignore
     except ImportError:
         _extension_module = None
 
@@ -29,7 +29,7 @@ def _resolve_triton_ascend_op(op_name: str):
 
     raise RuntimeError(
         f"Failed to resolve Triton op '{op_name}': "
-        "neither triton.language.extra.cann.extension nor triton.language provides it."
+        "neither triton.language.extra.can.extension nor triton.language provides it."
     )
 
 

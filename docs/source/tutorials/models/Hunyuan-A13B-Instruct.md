@@ -61,7 +61,7 @@ cd ..
 
 ### Software Stack Version Verification
  <!-- TODO: update to Python 3.12 after verification -->
-The environment is based on CANN built into the GiteeAI platform, and successfully runs vLLM {{ vllm_ascend_version }}, and vLLM-Ascend:{{ vllm_ascend_version }} through the Python 3.11.6 Conda environment.
+The environment is based on CAN built into the GiteeAI platform, and successfully runs vLLM {{ vllm_ascend_version }}, and vLLM-Ascend:{{ vllm_ascend_version }} through the Python 3.11.6 Conda environment.
 
 ## Deployment
 
@@ -85,7 +85,7 @@ vllm serve ${MODEL_PATH} \
 
 ### Key Performance Indicators
 
-Based on verified CANN 8.5.1 test logs:
+Based on verified CAN 8.5.1 test logs:
 
 - Memory usage for weights: each NPU has a static memory usage of approximately 37.46 GB.
 - Graph compilation (ACL Graph): with PIECEWISE mode enabled, the system automatically captures the graph in approximately 18 seconds, which can significantly accelerate subsequent inference.

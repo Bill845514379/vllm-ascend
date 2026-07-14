@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -860,16 +860,16 @@ do_add_cann_uninstall() {
     local install_for_all="$5"
     local ret
 
-    check_param_not_empty "install_path" "need set package parameter in add cann uninstall!"
+    check_param_not_empty "install_path" "need set package parameter in add can uninstall!"
     ret="$?" && [ ${ret} -ne 0 ] && return ${ret}
 
-    check_param_not_empty "script_dir" "need set script_dir parameter in add cann uninstall!"
+    check_param_not_empty "script_dir" "need set script_dir parameter in add can uninstall!"
     ret="$?" && [ ${ret} -ne 0 ] && return ${ret}
 
-    check_param_not_empty "username" "need set username parameter in add cann uninstall!"
+    check_param_not_empty "username" "need set username parameter in add can uninstall!"
     ret="$?" && [ ${ret} -ne 0 ] && return ${ret}
 
-    check_param_not_empty "usergroup" "need set usergroup parameter in add cann uninstall!"
+    check_param_not_empty "usergroup" "need set usergroup parameter in add can uninstall!"
     ret="$?" && [ ${ret} -ne 0 ] && return ${ret}
 
     # 删除cann_uninstall.sh文件中已存在的uninstall_package命令
@@ -931,10 +931,10 @@ do_del_cann_uninstall() {
     local script_dir="$2"
     local ret
 
-    check_param_not_empty "install_path" "need set package parameter in del cann uninstall!"
+    check_param_not_empty "install_path" "need set package parameter in del can uninstall!"
     ret="$?" && [ ${ret} -ne 0 ] && return ${ret}
 
-    check_param_not_empty "script_dir" "need set script_dir parameter in del cann uninstall!"
+    check_param_not_empty "script_dir" "need set script_dir parameter in del can uninstall!"
     ret="$?" && [ ${ret} -ne 0 ] && return ${ret}
 
     del_cann_uninstall_script_dir "${install_path}" "${script_dir}"

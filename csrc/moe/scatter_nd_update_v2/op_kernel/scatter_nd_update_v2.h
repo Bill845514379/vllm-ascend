@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -95,8 +95,8 @@ public:
         PipeMte2ToS();
         PipeBarrier<PIPE_V>();
         UpdateSearchParam(indiceLocal, isTail);
-        indiceQue_.EnQue<int>(indiceLocal);
-        posIdxQue_.EnQue<int>(posIdxLocal);
+        indiceQue_.enqueue<int>(indiceLocal);
+        posIdxQue_.enqueue<int>(posIdxLocal);
     }
 
     __aicore__ inline void CopyUpdateIn(LocalTensor<T> &updateLocal, uint64_t gmIdx, uint64_t ubIdx, uint64_t tileIdx, uint64_t tileLength)
@@ -182,12 +182,12 @@ public:
                 inUbNum++;
 
                 if (inUbNum == copyRow_) {
-                    updateQue_.EnQue<T>(updateLocal);
+                    updateQue_.enqueue<T>(updateLocal);
                     CopyOut(inUbNum, i, indiceLocal, posIdxLocal, tileIdx, tileLength);
                     inUbNum = 0;
                 }
                 if (i == leftBound_ && inUbNum != 0) {
-                    updateQue_.EnQue<T>(updateLocal);
+                    updateQue_.enqueue<T>(updateLocal);
                     CopyOut(inUbNum, i, indiceLocal, posIdxLocal, tileIdx, tileLength);
                 }
             }

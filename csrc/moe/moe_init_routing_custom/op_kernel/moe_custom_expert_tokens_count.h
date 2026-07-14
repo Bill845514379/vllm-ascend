@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -218,7 +218,7 @@ __aicore__ inline void ExpertTokensCount<HISTOGRAMTYPE>::CopyIn(int64_t loop, in
     DataCopyPadExtParams dataCopyPadParams{false, 0, 0, 0};
     int64_t sortedexpertIdxOffset = loop * perCorePerLoopElements_;
     DataCopyPad(sortedExpertIdxInLocal, sortedexpertIdxGm_[sortedexpertIdxOffset], dataCopyParams, dataCopyPadParams);
-    sortedExpertIdxInQueue_.EnQue(sortedExpertIdxInLocal);
+    sortedExpertIdxInQueue_.enqueue(sortedExpertIdxInLocal);
 }
 
 template <const int HISTOGRAMTYPE>
@@ -280,7 +280,7 @@ __aicore__ inline void ExpertTokensCount<HISTOGRAMTYPE>::Compute(int64_t curLoop
     finalExpertId = lastExpertId;
     expertTokenValue = (i - lastIndex);
 
-    expertCountOutToTempQueue_.EnQue<int32_t>(expertCountOutLocal);
+    expertCountOutToTempQueue_.enqueue<int32_t>(expertCountOutLocal);
     sortedExpertIdxInQueue_.FreeTensor(sortedExpertIdxInLocal);
 }
 
@@ -327,7 +327,7 @@ __aicore__ inline void ExpertTokensCount<HISTOGRAMTYPE>::expertCountCopyIn()
                                      static_cast<uint32_t>((actualExpertNum_) * sizeof(int32_t)), 0, 0, 0};
     DataCopyPadExtParams dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(expertCountTempInLocal, expertCountTempGm_, dataCopyParams, dataCopyPadParams);
-    expertCountTempInQueue_.EnQue(expertCountTempInLocal);
+    expertCountTempInQueue_.enqueue(expertCountTempInLocal);
 }
 
 template <const int HISTOGRAMTYPE>
@@ -352,7 +352,7 @@ __aicore__ inline void ExpertTokensCount<HISTOGRAMTYPE>::expertCountCompute()
         Cast(expertCountOutLocal, expertCountTempInLocal, RoundMode::CAST_NONE, actualExpertNum_);
     }
 
-    expertIdxCountOutQueue_.EnQue<int64_t>(expertCountOutLocal);
+    expertIdxCountOutQueue_.enqueue<int64_t>(expertCountOutLocal);
     expertCountTempInQueue_.FreeTensor(expertCountTempInLocal);
 }
 

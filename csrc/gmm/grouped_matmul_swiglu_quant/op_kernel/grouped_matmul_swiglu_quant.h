@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -154,7 +154,7 @@ GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::PreLoadTokenAndChannel(LocalTensor
         DataCopyPad(channelScaleLocal, perChannelScaleGM[vecConfig.curGroupIdx * gmmSwiglu->tokenLen],
                     copyChannelParams, padParams);
     }
-    perChannelScaleInQueue.EnQue(channelScaleLocal);
+    perChannelScaleInQueue.enqueue(channelScaleLocal);
 }
 
 template <typename mmType, bool sync, typename CHANNELDTYPE>
@@ -273,9 +273,9 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::VecProcess(
             LocalTensor<int32_t> mmLocal = mmOutQueue.AllocTensor<int32_t>();
             LocalTensor<int8_t> quantLocal = quantOutQueue.AllocTensor<int8_t>();
             LocalTensor<float> quantScaleLocal = quantScaleOutQueue.AllocTensor<float>();
-            mmOutQueue.EnQue(mmLocal);
-            quantScaleOutQueue.EnQue(quantScaleLocal);
-            quantOutQueue.EnQue(quantLocal);
+            mmOutQueue.enqueue(mmLocal);
+            quantScaleOutQueue.enqueue(quantScaleLocal);
+            quantOutQueue.enqueue(quantLocal);
             PreLoadTokenAndChannel<CHANNELDTYPE>(channelScaleLocal, vecConfig);
         }
         SyncAll<false>();
@@ -376,14 +376,14 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::customDataC
     DataCopyPadExtParams<int32_t> padParams_0{false, 0, 0, 0};
     DataCopyPad(_inMMLocal_0, mmOutGM[vecConfig.curOffset], copyParams_0, padParams_0);
 
-    mmOutQueue.EnQue(_inMMLocal_0);
+    mmOutQueue.enqueue(_inMMLocal_0);
 
     LocalTensor<int32_t> _inMMLocal_1 = mmOutQueue.DeQue<int32_t>();
 
     Cast(_inMMLocal_1.ReinterpretCast<float>(), _inMMLocal_1, RoundMode::CAST_NONE,
          vecConfig.innerLoopNum * gmmSwiglu->tokenLen);
 
-    mmOutQueue.EnQue(_inMMLocal_1);
+    mmOutQueue.enqueue(_inMMLocal_1);
     LocalTensor<float> _inMMLocal_2 = mmOutQueue.DeQue<float>();
     SetFlag<HardEvent::S_V>(EVENT_ID0);
     for (uint32_t i = 0; i < vecConfig.innerLoopNum; i++) {
@@ -397,7 +397,7 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::customDataC
     }
     WaitFlag<HardEvent::S_V>(EVENT_ID0);
     vecConfig.curOffset = vecConfig.curIdx * gmmSwiglu->tokenLen;
-    mmOutQueue.EnQue(_inMMLocal_2);
+    mmOutQueue.enqueue(_inMMLocal_2);
 }
 
 template <typename mmType, bool sync, typename CHANNELDTYPE>
@@ -431,7 +431,7 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::UpdateChann
                         padParams);
         }
         PipeBarrier<PIPE_ALL>();
-        perChannelScaleInQueue.EnQue(_inChannel);
+        perChannelScaleInQueue.enqueue(_inChannel);
     }
 }
 
@@ -453,8 +453,8 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::Dequant(uin
     Mul(mmLocal[loopIdx * gmmSwiglu->tokenLen], mmLocal[loopIdx * gmmSwiglu->tokenLen], perChannelLocal,
         gmmSwiglu->tokenLen);
     vecConfig.nextUpadteInterVal--;
-    mmOutQueue.EnQue(mmLocal);
-    perChannelScaleInQueue.EnQue(perChannelLocal);
+    mmOutQueue.enqueue(mmLocal);
+    perChannelScaleInQueue.enqueue(perChannelLocal);
 }
 
 template <typename mmType, bool sync, typename CHANNELDTYPE>
@@ -480,7 +480,7 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::Swiglu(uint
     DataCopyParams repeatParams{1, static_cast<uint16_t>((gmmSwiglu->tokenLen / SWIGLU_REDUCE_FACTOR) / ALIGN_8_ELE), 0,
                                 0};
     DataCopy(_inMMLocal[loopIdx * gmmSwiglu->tokenLen], workspaceLocal, repeatParams);
-    mmOutQueue.EnQue(_inMMLocal);
+    mmOutQueue.enqueue(_inMMLocal);
 }
 
 template <typename mmType, bool sync, typename CHANNELDTYPE>
@@ -518,8 +518,8 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::Quant(uint3
     int32_t tempCount = static_cast<int32_t>(halfTokenLen);
     LocalTensor<int8_t> castSpace = reduceWorkspace.Get<int8_t>(UB_BLOCK_UNIT_SIZE);
     CastFp32ToInt8Template(quantLocal, _inMMLocal, castSpace, dstTempOffset, srcTempOffset, tempCount);
-    mmOutQueue.EnQue(_inMMLocal);
-    quantOutQueue.EnQue(quantLocal);
+    mmOutQueue.enqueue(_inMMLocal);
+    quantOutQueue.enqueue(quantLocal);
 }
 
 template <typename mmType, bool sync, typename CHANNELDTYPE>
@@ -539,8 +539,8 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::customDataC
     PipeBarrier<PIPE_ALL>();
     vecConfig.startIdx += vecConfig.innerLoopNum;
     vecConfig.startOffset = vecConfig.startIdx * gmmSwiglu->tokenLen;
-    quantOutQueue.EnQue(quantLocal);
-    quantScaleOutQueue.EnQue(quantScaleLocal);
+    quantOutQueue.enqueue(quantLocal);
+    quantScaleOutQueue.enqueue(quantScaleLocal);
 }
 
 } // namespace GROUPED_MATMUL_SWIGLU_QUANT

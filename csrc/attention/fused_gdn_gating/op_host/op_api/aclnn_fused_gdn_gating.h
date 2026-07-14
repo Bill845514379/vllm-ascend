@@ -20,10 +20,10 @@ extern "C" {
 
 /**
  * @brief FusedGdnGating phase-1: compute required workspace size.
- * @param [in]  aLog        : A_log,       [num_heads],           dtype fp32/bf16/fp16.
+ * @param [in]  along        : A_log,       [num_heads],           dtype fp32/bf16/fp16.
  * @param [in]  a           : a,           [batch, num_heads],    dtype bf16/fp16.
  * @param [in]  b           : b,           [batch, num_heads],    dtype bf16/fp16.
- * @param [in]  dtBias      : dt_bias,     [num_heads],           same dtype as aLog.
+ * @param [in]  dtBias      : dt_bias,     [num_heads],           same dtype as along.
  * @param [in]  beta        : softplus beta (default 1.0).
  * @param [in]  threshold   : softplus threshold (default 20.0).
  * @param [out] g           : output gate,   [1, batch, num_heads], dtype fp32.
@@ -32,7 +32,7 @@ extern "C" {
  * @param [out] executor    : op executor handle.
  */
 __attribute__((visibility("default"))) aclnnStatus aclnnFusedGdnGatingGetWorkspaceSize(
-    const aclTensor *aLog, const aclTensor *a, const aclTensor *b,
+    const aclTensor *along, const aclTensor *a, const aclTensor *b,
     const aclTensor *dtBias, float beta, float threshold,
     aclTensor *g, aclTensor *betaOutput,
     uint64_t *workspaceSize, aclOpExecutor **executor);

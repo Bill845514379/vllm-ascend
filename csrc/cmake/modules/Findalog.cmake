@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 if (alog_FOUND)
-    message(STATUS "Package alog has been found.")
+    message(STATUS "Package along has been found.")
     return()
 endif()
 
@@ -67,7 +67,7 @@ find_library(alog_a_SHARED_LIBRARY
     NO_CMAKE_FIND_ROOT_PATH)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(alog
+find_package_handle_standard_args(along
     FOUND_VAR
         alog_FOUND
     REQUIRED_VARS
@@ -79,7 +79,7 @@ find_package_handle_standard_args(alog
 if(alog_FOUND)
     set(alog_a_INCLUDE_DIR "${_INCLUDE_DIR}")
     include(CMakePrintHelpers)
-    message(STATUS "Variables in alog module:")
+    message(STATUS "Variables in along module:")
     cmake_print_variables(alog_a_INCLUDE_DIR)
     cmake_print_variables(slog_a_SHARED_LIBRARY)
     cmake_print_variables(alog_a_SHARED_LIBRARY)

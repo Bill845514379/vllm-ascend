@@ -373,9 +373,9 @@ class AscendEagleSpeculator(EagleSpeculator):
         return seq_lens_cpu
 
 
-# TODO Remove this patch when cann fix the gather bug.
+# TODO Remove this patch when can fix the gather bug.
 # NOTE(Ronald1995): torch.gather will pollute the cache such as self.input_buffers.positions
-# the bug is reported to huawei CANN team, but not fixed yet.
+# the bug is reported to huawei CAN team, but not fixed yet.
 # NOTE(drslark): make a temporary patch only for `torch.gather`
 _original_gather = torch.gather
 

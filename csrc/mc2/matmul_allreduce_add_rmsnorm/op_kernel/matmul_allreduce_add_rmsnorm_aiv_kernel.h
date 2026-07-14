@@ -460,7 +460,7 @@ private:
                 uint32_t add_len = min<uint32_t>(n - add_offset, DIFUSION_ADD_LEN);
 
                 DataCopy(x_local[add_offset], x_global[i * n + add_offset], add_len);
-                inQueueX.EnQue(x_local);
+                inQueueX.enqueue(x_local);
 
                 uint32_t iterate_end = (rank + 1) % rank_size;
                 y_local = inQueueY.AllocTensor<MmadDtype>();
@@ -478,7 +478,7 @@ private:
                     }
                     DataCopy(y_local[k * add_len], y_global[i * n + add_offset], add_len);
                 }
-                inQueueY.EnQue(y_local);
+                inQueueY.enqueue(y_local);
                 x_local = inQueueX.DeQue<MmadDtype>();
                 y_local = inQueueY.DeQue<MmadDtype>();
 
@@ -499,7 +499,7 @@ private:
             // copy add result out
             LocalTensor<MmadDtype> add_out = addOutQueue.AllocTensor<MmadDtype>();
             Cast(add_out, x_fp32, RoundMode::CAST_RINT, n);
-            addOutQueue.EnQue(add_out);
+            addOutQueue.enqueue(add_out);
             add_out = addOutQueue.DeQue<MmadDtype>();
             DataCopy(add_out_global[i * n], add_out, n);
             addOutQueue.FreeTensor(add_out);
@@ -562,7 +562,7 @@ private:
                 PipeSync<HardEvent::V_MTE2>();
             }
 
-            outQueue.EnQue(out_local);
+            outQueue.enqueue(out_local);
             out_local = outQueue.DeQue<MmadDtype>();
             DataCopy(out_global[i * n], out_local, n);
             outQueue.FreeTensor(out_local);

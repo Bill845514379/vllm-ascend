@@ -120,7 +120,7 @@ After analysis, the `*ascend_pt` directory will contain many files, with the mai
 
 ### 0. Build from Source and Upgrade
 
-The `msserviceprofiler` tool is pre-installed with the CANN Toolkit package. Use the following commands to install or upgrade from source.
+The `msserviceprofiler` tool is pre-installed with the CAN Toolkit package. Use the following commands to install or upgrade from source.
 
 ```bash
 git clone https://gitcode.com/Ascend/msserviceprofiler.git
@@ -208,7 +208,7 @@ The configuration is in JSON format. Main parameters:
 | enable | Switch for profiling: <br />0: disable<br />1: enable<br />Default: 0 | Yes |
 | prof_dir | Directory to store collected performance data. <br />Default: `${HOME}/.ms_server_profiler` | No |
 | profiler_level | Data collection level. Default is "INFO" (normal level). | No |
-| acl_task_time | Switch to collect operator dispatch latency and execution latency. Values: <br />0: off. Default; 0 or any invalid value means off.<br />1: on. When enabled, calls `aclprofCreateConfig` with `ACL_PROF_TASK_TIME_L0`.<br />2: on. MSPTI-based dump. When enabled, set before starting the service: `export LD_PRELOAD={INSTALL_DIR}/lib64/libmspti.so`, where `{INSTALL_DIR}` is the CANN installation root (e.g. `/usr/local/Ascend/cann` for a typical root install).<br />3: on. Torch Profiler–based dump. | No |
+| acl_task_time | Switch to collect operator dispatch latency and execution latency. Values: <br />0: off. Default; 0 or any invalid value means off.<br />1: on. When enabled, calls `aclprofCreateConfig` with `ACL_PROF_TASK_TIME_L0`.<br />2: on. MSPTI-based dump. When enabled, set before starting the service: `export LD_PRELOAD={INSTALL_DIR}/lib64/libmspti.so`, where `{INSTALL_DIR}` is the CAN installation root (e.g. `/usr/local/Ascend/can` for a typical root install).<br />3: on. Torch Profiler–based dump. | No |
 | acl_prof_task_time_level | Profiling level and duration. Values: <br />L0: collect operator dispatch and execution latency only; lower overhead (no operator basic info).<br />L1: collect AscendCL interface performance (host–device and inter-device sync/async memory copy latencies), plus operator dispatch, execution, and basic info for comprehensive analysis.<br />`{time}`: optional duration segment; integer 1–999, unit seconds.<br />If unset, defaults to L0 until program exit; invalid values fall back to defaults.<br />Level and duration can be combined, e.g., `"acl_prof_task_time_level": "L1;10"`.<br />**Note:** When Torch Profiler is used (`acl_task_time` set to `3`), `{time}` duration is not supported. | No |
 | timelimit | Profiling duration for the service. The process stops automatically after this time. Range: integer 0–7200, unit: seconds. Default 0 means unlimited. Recommend at least 120 s; shorter runs may lack data for parsed outputs and trigger warnings. | No |
 | domain | Limit profiling to the specified domains to reduce data volume. String, separated by semicolons, case-sensitive, e.g., "Request; KVCache".<br />Empty means all available domains.<br />Available domains: Request, KVCache, ModelExecute, BatchSchedule, Communication.<br />Note: If the selected domains are incomplete, analysis output may show warnings due to missing data. See [Reference Table 1](https://www.hiascend.com/document/detail/zh/canncommercial/850/devaids/Profiling/mindieprofiling_0010.html). | No |

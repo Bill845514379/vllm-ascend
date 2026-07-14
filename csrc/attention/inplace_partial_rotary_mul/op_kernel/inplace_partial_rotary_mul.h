@@ -246,16 +246,16 @@ __aicore__ inline void InplacePartialRotaryMulABA<T, isBrc, R>::Process()
         int64_t gmOffset = blockIdx_ * blockFactor_ * ysCount + i * ubFactor_ * ysCount + start_;
         int64_t blockCout = ubSize * numHead_;
         CopyInData(xUb, xGm_, blockCout , headDim_, gmOffset, halfNumx_);
-        xQue_.EnQue<T>(xUb);
+        xQue_.enqueue<T>(xUb);
 
         LocalTensor<R> r1Ub = r1Que_.AllocTensor<R>();
         int64_t r1Offset = blockIdx_ * blockFactor_ * headDim_ + i * ubFactor_ * headDim_;
         CopyInDataR(r1Ub, r1Gm_, ubSize , headDim_, r1Offset, ropeUbOffset_);
-        r1Que_.EnQue<R>(r1Ub);
+        r1Que_.enqueue<R>(r1Ub);
 
         LocalTensor<R> r2Ub = r2Que_.AllocTensor<R>();
         CopyInDataR(r2Ub, r2Gm_, ubSize , headDim_, r1Offset, ropeUbOffset_);
-        r2Que_.EnQue<R>(r2Ub);
+        r2Que_.enqueue<R>(r2Ub);
 
         xUb = xQue_.DeQue<T>();
         r1Ub = r1Que_.DeQue<R>();
@@ -291,7 +291,7 @@ __aicore__ inline void InplacePartialRotaryMulABA<T, isBrc, R>::Process()
         if constexpr(sizeof(T) != sizeof(float)) {
             Cast(yUb, yUbFp32, RoundMode::CAST_RINT, xtotalNum);
         }
-        yQue_.EnQue<T>(yUb);
+        yQue_.enqueue<T>(yUb);
         yUb = yQue_.DeQue<T>();
         DataCopyOut(yUb, yGm_, blockCout, headDim_, gmOffset, 0);
         yQue_.FreeTensor(yUb);

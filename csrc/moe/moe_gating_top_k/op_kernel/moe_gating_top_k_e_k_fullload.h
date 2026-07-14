@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -118,7 +118,7 @@ __aicore__ inline void MoeGatingTopKEKFullload<T>::CopyInX(int64_t row)
              expertCount_);
     }
 
-    xInQueue_.EnQue(xInLocalTensor);
+    xInQueue_.enqueue(xInLocalTensor);
 }
 
 template <typename T>
@@ -137,8 +137,8 @@ __aicore__ inline void MoeGatingTopKEKFullload<T>::ComputeX()
         Adds(xBiasTensor, xSigmoidTensor, static_cast<float>(0), expertCount_);
     }
 
-    xSigmoidQueue_.EnQue<float>(xSigmoidTensor);
-    xBiasQueue_.EnQue<float>(xBiasTensor);
+    xSigmoidQueue_.enqueue<float>(xSigmoidTensor);
+    xBiasQueue_.enqueue<float>(xBiasTensor);
     xInQueue_.FreeTensor(xInLocalTensor);
     sigmoidTmpQueue_.FreeTensor(sharedTmpBuffer);
 }
@@ -152,7 +152,7 @@ __aicore__ inline void MoeGatingTopKEKFullload<T>::SortInGroup()
     ArithProgression(indexTensor.ReinterpretCast<int32_t>(), 0, 1, expertCount_); // 生成组索引0 1 2 ......
     PipeBarrier<PIPE_V>();
     Sort32(sortedInGroupTensor, xBiasTensor, indexTensor, expertCount_ / ONE_REPEAT_SORT_NUM); // 组内排序
-    sortedInGroupQueue_.EnQue<float>(sortedInGroupTensor);
+    sortedInGroupQueue_.enqueue<float>(sortedInGroupTensor);
     xBiasQueue_.FreeTensor(xBiasTensor);
 }
 
@@ -227,7 +227,7 @@ __aicore__ inline void MoeGatingTopKEKFullload<T>::SelectTopKGroupIndex()
     Cast(sortedGroupIndexTensor, sortedGroupTensor, RoundMode::CAST_ROUND, kGroup_);
 
     sortedGroupQueue_.FreeTensor(sortedGroupTensor);
-    sortedInGroupQueue_.EnQue<float>(sortedInGroupTensor);
+    sortedInGroupQueue_.enqueue<float>(sortedInGroupTensor);
     sigmoidTmpQueue_.FreeTensor(top2ValueInGroupTensor);
 }
 
@@ -268,7 +268,7 @@ __aicore__ inline void MoeGatingTopKEKFullload<T>::SelectTopKExpertIdx()
     GatherMask(expertIdxTensor, sortedExpertTensor.template ReinterpretCast<int32_t>(), src1Pattern, false,
                static_cast<uint32_t>(0), {1, 1, 0, 0}, rsvdCnt);
     xInQueue_.FreeTensor(sortedExpertTensor);
-    expertIdxOutQueue_.EnQue(expertIdxTensor);
+    expertIdxOutQueue_.enqueue(expertIdxTensor);
     sortedInGroupQueue_.FreeTensor(sortedInGroupTensor);
 }
 
@@ -311,9 +311,9 @@ __aicore__ inline void MoeGatingTopKEKFullload<T>::SelectTopKExpertScore()
         Cast(yTensor, yOutTensor, RoundMode::CAST_RINT, k_);
     }
 
-    xSigmoidQueue_.EnQue<float>(xSigmoidTensor);
-    expertIdxOutQueue_.EnQue<int32_t>(expertIdxTensor);
-    yOutQueue_.EnQue(yTensor);
+    xSigmoidQueue_.enqueue<float>(xSigmoidTensor);
+    expertIdxOutQueue_.enqueue<int32_t>(expertIdxTensor);
+    yOutQueue_.enqueue(yTensor);
 }
 
 template <typename T>

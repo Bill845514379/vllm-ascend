@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -267,7 +267,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::CopyInWeightSc
     if constexpr (std::is_same_v<TXGm, int32_t>) {
         DataCopyPad(weightScaleLocal, weightScaleGm_[groupIdx * tl_->inDimy], dataCopyWeightScaleParams, padParams);
     }
-    weightScaleQueue_.EnQue(weightScaleLocal);
+    weightScaleQueue_.enqueue(weightScaleLocal);
 }
 
 TEMPLATE_DSQ_DECLARE
@@ -316,7 +316,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::CopyInQuantSca
             }
         }
     }
-    inScaleQueue_.EnQue(inScaleLocal);
+    inScaleQueue_.enqueue(inScaleLocal);
 }
 
 TEMPLATE_DSQ_DECLARE
@@ -336,7 +336,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::CopyInBias(int
             } else {
                 DataCopyPad(biasLocal_[tl_->inDimy], biasGm_[groupIdx * tl_->inDimy], dataCopyBiasParams, padParams);
             }
-            biasQueue_.EnQue(biasLocal_);
+            biasQueue_.enqueue(biasLocal_);
         }
     }
 }
@@ -364,7 +364,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::CopyInXAct(int
     if (std::is_same_v<TXGm, int32_t> && !tl_->activationScaleIsEmpty) {
         DataCopyPad(xActLocalF32[TBufActSclInOfs_], activationScaleGm_[xDimxOffset], dataCopyActScaleParams, padParams);
     }
-    xActQueue_.EnQue(xActLocal);
+    xActQueue_.enqueue(xActLocal);
 }
 
 TEMPLATE_DSQ_DECLARE
@@ -422,7 +422,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::ComputeDequant
             PipeBarrier<PIPE_V>();
         }
     }
-    xActQueue_.EnQue(xLocalF32);
+    xActQueue_.enqueue(xLocalF32);
 }
 
 TEMPLATE_DSQ_DECLARE
@@ -728,7 +728,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::DynamicQuant(
     PipeBarrier<PIPE_V>();
 
     CastFloatToInt8(tmpUbF32Act, tmpUbF32Gate, proDimsx, yOut);
-    outQueue_.EnQue<float>(outLocal);
+    outQueue_.enqueue<float>(outLocal);
 }
 
 TEMPLATE_DSQ_DECLARE
@@ -777,7 +777,7 @@ __aicore__ inline void DequantSwigluQuantBase<TEMPLATE_DSQ_ARGS>::StaticQuant(
     LocalTensor<int8_t> yOut = outLocal.template ReinterpretCast<int8_t>();
 
     CastFloatToInt8(tmpUbF32Act, tmpUbF32Gate, proDimsx, yOut);
-    outQueue_.EnQue<float>(outLocal);
+    outQueue_.enqueue<float>(outLocal);
 }
 
 TEMPLATE_DSQ_DECLARE

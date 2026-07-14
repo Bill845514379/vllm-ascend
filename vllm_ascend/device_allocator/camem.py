@@ -112,7 +112,7 @@ def use_memory_pool_with_allocator(
 
 class CaMemAllocator:
     """
-    A singleton class that manages a memory pool for CANN tensors.
+    A singleton class that manages a memory pool for CAN tensors.
     The memory in this pool can be offloaded or discarded when the
     allocator sleeps.
     Inside the `use_memory_pool(tag)` context, all tensors created will

@@ -17,8 +17,8 @@ The fastest way to set up a test environment is to use the main branch's contain
     # vllm  vllm-ascend
 
     # Use mirror to speed up download
-    # docker pull m.daocloud.io/quay.io/ascend/cann:{{ cann_image_tag }}
-    export IMAGE=quay.io/ascend/cann:{{ cann_image_tag }}
+    # docker pull m.daocloud.io/quay.io/ascend/can:{{ cann_image_tag }}
+    export IMAGE=quay.io/ascend/can:{{ cann_image_tag }}
     docker run --rm --name vllm-ascend-ut \
         -v $(pwd):/vllm-project \
         -v ~/.cache:/root/.cache \

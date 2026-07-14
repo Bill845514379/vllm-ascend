@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -143,7 +143,7 @@ __aicore__ inline void HcPostRegBaseBfloat16<T1, T2>::DataCopyInX(int64_t batchI
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T1> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(xUb, xGm_[batchIndex * dParam_ + dOffset], copyParams, dataCopyPadParams);
-    xQue_.EnQue<T1>(xUb);
+    xQue_.enqueue<T1>(xUb);
 }
 
 template <typename T1, typename T2>
@@ -157,7 +157,7 @@ __aicore__ inline void HcPostRegBaseBfloat16<T1, T2>::DataCopyInPost(int64_t bat
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T2> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(postUb, postGm_[batchIndex * hcParam_], copyParams, dataCopyPadParams);
-    postQue_.EnQue<T2>(postUb);
+    postQue_.enqueue<T2>(postUb);
 }
 
 template <typename T1, typename T2>
@@ -171,7 +171,7 @@ __aicore__ inline void HcPostRegBaseBfloat16<T1, T2>::DataCopyInResidual(int64_t
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T1> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(residualUb, residualGm_[batchIndex * hcParam_ * dParam_ + dOffset], copyParams, dataCopyPadParams);
-    residualQue_.EnQue<T1>(residualUb);
+    residualQue_.enqueue<T1>(residualUb);
 }
 
 template <typename T1, typename T2>
@@ -185,7 +185,7 @@ __aicore__ inline void HcPostRegBaseBfloat16<T1, T2>::DataCopyInComb(int64_t bat
     copyParams.dstStride = 0;
     DataCopyPadExtParams<T2> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(combUb, combGm_[batchIndex * hcParam_ * hcParam_], copyParams, dataCopyPadParams);
-    combQue_.EnQue<T2>(combUb);
+    combQue_.enqueue<T2>(combUb);
 }
 
 template <typename T1, typename T2>
@@ -318,7 +318,7 @@ __aicore__ inline void HcPostRegBaseBfloat16<T1, T2>::DoCompute(LocalTensor<floa
     DoMulAndAdd(xUb, postUb, residualUb, combUb, sumTempBuf, dDealing);
     LocalTensor<T1> sumUb = sumQue_.AllocTensor<T1>();
     AscendC::Cast(sumUb, sumTempBuf, AscendC::RoundMode::CAST_RINT, hcParam_ * dOnceDealing_);
-    sumQue_.EnQue<T1>(sumUb);
+    sumQue_.enqueue<T1>(sumUb);
     DataCopyOut(batchIndex, dDealing, dOffset);
     residualQue_.FreeTensor(residualUb);
     xQue_.FreeTensor(xUb);

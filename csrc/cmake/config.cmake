@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -19,7 +19,7 @@ if ((NOT Python3_FOUND) OR (${Python3_EXECUTABLE} STREQUAL ""))
 endif ()
 set(HI_PYTHON   "${Python3_EXECUTABLE}" CACHE   STRING   "python executor")
 
-# 获取基础 CANN 路径
+# 获取基础 CAN 路径
 if (CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(ASCEND_CANN_PACKAGE_PATH  ${CUSTOM_ASCEND_CANN_PACKAGE_PATH})
 elseif (DEFINED ENV{ASCEND_HOME_PATH})
@@ -71,17 +71,17 @@ if (BUILD_OPEN_PROJECT)
         set(ASCEND_PROJECT_DIR       ${ASCEND_CANN_PACKAGE_PATH}/${SYSTEM_PREFIX}/tikcpp/ascendc_kernel_cmake)
     endif()
     set(ASCEND_CMAKE_DIR         ${ASCEND_PROJECT_DIR}/cmake   CACHE   STRING   "ascend project cmake")
-    set(IMPL_INSTALL_DIR         packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/${VENDOR_NAME}_transformer_impl)
-    set(IMPL_DYNAMIC_INSTALL_DIR packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/${VENDOR_NAME}_transformer_impl/dynamic)
+    set(IMPL_INSTALL_DIR         packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/${VENDOR_NAME}_transformer_impl)
+    set(IMPL_DYNAMIC_INSTALL_DIR packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/${VENDOR_NAME}_transformer_impl/dynamic)
     set(ACLNN_INC_INSTALL_DIR           packages/vendors/${VENDOR_NAME}_transformer/op_api/include/aclnnop)
     set(ACLNN_INC_LEVEL2_INSTALL_DIR    packages/vendors/${VENDOR_NAME}_transformer/op_api/include/aclnnop/level2)
 else()
-    set(ASCEND_CMAKE_DIR         ${TOP_DIR}/asl/ops/cann/ops/built-in/ascendc/samples/customize/cmake   CACHE   STRING   "ascend project cmake")
+    set(ASCEND_CMAKE_DIR         ${TOP_DIR}/asl/ops/can/ops/built-in/ascendc/samples/customize/cmake   CACHE   STRING   "ascend project cmake")
     set(IMPL_INSTALL_DIR         lib/ascendc/impl)
     set(IMPL_DYNAMIC_INSTALL_DIR lib/ascendc/impl/dynamic)
     set(ACLNN_INC_INSTALL_DIR    lib/include)
     set(OPS_STATIC_TYPES         infer train)
-    set(OPS_STATIC_SCRIPT        ${TOP_DIR}/asl/ops/cann/ops/built-in/kernel/binary_script/build_opp_kernel_static.py)
+    set(OPS_STATIC_SCRIPT        ${TOP_DIR}/asl/ops/can/ops/built-in/kernel/binary_script/build_opp_kernel_static.py)
 endif ()
 if (EXISTS ${OPS_ADV_CMAKE_DIR}/scripts/util)
     set(ASCENDC_CMAKE_UTIL_DIR       ${OPS_ADV_CMAKE_DIR}/scripts/util)
@@ -89,7 +89,7 @@ else()
     set(ASCENDC_CMAKE_UTIL_DIR       ${ASCEND_CMAKE_DIR}/util)
 endif()
 set(CUSTOM_DIR         ${CMAKE_BINARY_DIR}/custom)
-set(TILING_CUSTOM_DIR  ${CUSTOM_DIR}/op_impl/ai_core/tbe/op_tiling)
+set(TILING_CUSTOM_DIR  ${CUSTOM_DIR}/op_impl/ai_core/the/op_tiling)
 set(TILING_CUSTOM_FILE ${TILING_CUSTOM_DIR}/liboptiling.so)
 
 # 兼容ascendc变更临时适配，待切换新版本ascendc新版本后删除
@@ -194,7 +194,7 @@ endif ()
 # 预处理
 ########################################################################################################################
 if (BUILD_OPEN_PROJECT)
-    # 与基础 CANN 配套关系检查
+    # 与基础 CAN 配套关系检查
     option(CHECK_COMPATIBLE      "check compatibility"         ON)
     set(CHECK_COMPATIBLE                                      OFF)
     if (CHECK_COMPATIBLE)

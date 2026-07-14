@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -277,7 +277,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::InitBuffers(TPipe *pipe)
     apeUb = apeBuf.Get<T>();
     LocalTensor<T> normweightInUb = inputQue2.AllocTensor<T>();
     DataCopy(normweightInUb, normWeightGm_, constInfo_.headDim); // 获取normWeight，常驻
-    inputQue2.EnQue(normweightInUb);
+    inputQue2.enqueue(normweightInUb);
     inputQue2.DeQue<T>();
     DataCopy(normWeightUb, normweightInUb, constInfo_.headDim);
     inputQue2.FreeTensor(normweightInUb);
@@ -485,7 +485,7 @@ CompressorBlockVector<COMP>::DataCopyWithOutputQue(const GlobalTensor<O> &dstGm,
         DataCopyAlignUbToUb(outputUb, srcLocal[srcOffset], curCopyRowCount, copyColCount, srcSingleRowCount,
                             copyColCount);
 
-        outputQue1.EnQue(outputUb);
+        outputQue1.enqueue(outputUb);
         outputQue1.DeQue<O>();
 
         DataCopyAlignUbToGm(dstGm[dstOffset], outputUb, curCopyRowCount, copyColCount, copyColCount, dstSingleRowCount);
@@ -514,7 +514,7 @@ CompressorBlockVector<COMP>::DataCopyWithInputQue(const LocalTensor<O> &dstLocal
 
         DataCopyAlignGmToUb(inputUb, srcGm[srcOffset], curCopyRowCount, copyColCount, srcSingleRowCount, copyColCount);
 
-        inputQue2.EnQue(inputUb);
+        inputQue2.enqueue(inputUb);
         inputQue2.DeQue<O>();
 
         DataCopyAlignUbToUb(dstLocal[dstOffset], inputUb, curCopyRowCount, copyColCount, copyColCount,
@@ -552,7 +552,7 @@ CompressorBlockVector<COMP>::AddMultiDataToUb(const LocalTensor<O> &dstLocal, co
             }
         }
 
-        inputQue.EnQue(splitLocal);
+        inputQue.enqueue(splitLocal);
         inputQue.DeQue<O>();
 
         PipeBarrier<PIPE_V>();
@@ -969,7 +969,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::OverLapScoreKv(
     GlobalTensor<T> scoreDBMm1ResGm = scoreMm1ResGm_[info.c1v1DbIdx * constInfo_.dbSize];
     LocalTensor<T> scoreUb = inputQue1.AllocTensor<T>();
     FromWokrSpaceToUb(scoreUb, scoreDBMm1ResGm, originSliceInfo, statisticInfo, dStartIdx, dDealSize);
-    inputQue1.EnQue(scoreUb);
+    inputQue1.enqueue(scoreUb);
     inputQue1.DeQue<T>();
     overLapSliceIterator.Reset(originSliceInfo.bIdx, originSliceInfo.sIdx, 0U, 0U);
     overLapSliceIterator.SetNeedDealTcSize(needDealTcSize);
@@ -992,7 +992,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::OverLapScoreKv(
     GlobalTensor<T> kvDBMm1ResGm = kvMm1ResGm_[info.c1v1DbIdx * constInfo_.dbSize];
     LocalTensor<T> kvUb = inputQue1.AllocTensor<T>();
     FromWokrSpaceToUb(kvUb, kvDBMm1ResGm, originSliceInfo, statisticInfo, dStartIdx, dDealSize);
-    inputQue1.EnQue(kvUb);
+    inputQue1.enqueue(kvUb);
     inputQue1.DeQue<T>();
     overLapSliceIterator.Reset(originSliceInfo.bIdx, originSliceInfo.sIdx, 0U, 0U);
     overLapSliceIterator.SetNeedDealTcSize(needDealTcSize);
@@ -1033,7 +1033,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::DealVec1BaseBlock(const Vec1
         PipeBarrier<PIPE_V>();
         KvMulReduceScore(kvLocal, scoreLocal, comperssoredUb, statisticInfo.compressorScCnt, dDealSize);
         PipeBarrier<PIPE_V>();
-        outputQue2.EnQue(comperssoredUb);
+        outputQue2.enqueue(comperssoredUb);
         outputQue2.DeQue<T>();
         GlobalTensor<T> resGm = vec1ResGm_[info.v1v2DbIdx * constInfo_.dbSize];
         CopyOutVec1Res(resGm, info, comperssoredUb, statisticInfo.compressorScCnt, dStartIdx, dDealSize);
@@ -1274,7 +1274,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::DealVec2BaseBlock(const Vec2
     // CopyIn
     LocalTensor<T> vec1ResUb = inputQue1.AllocTensor<T>();
     DataCopy(vec1ResUb, vec2InputGm[inGmOffset], computeSize);
-    inputQue1.EnQue(vec1ResUb);
+    inputQue1.enqueue(vec1ResUb);
     inputQue1.DeQue<T>();
 
     // RmsNorm
@@ -1291,7 +1291,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::DealVec2BaseBlock(const Vec2
     PipeBarrier<PIPE_V>();
 
     // CopyOut
-    outputQue1.EnQue(outputUb);
+    outputQue1.enqueue(outputUb);
     outputQue1.DeQue<X_T>();
     CopyFinalResultOut(outputUb, sliceIterator);
     outputQue1.FreeTensor(outputUb);
@@ -1335,7 +1335,7 @@ __aicore__ inline void CompressorBlockVector<COMP>::CalRope(const LocalTensor<X_
             LocalTensor<T> sinUb = cosUb[BUFFER_SIZE_BYTE_16K / sizeof(T)];
             DataCopy(cosUb, ropeCosGm_[SinCosOffset], computeSize);
             DataCopy(sinUb, ropeSinGm_[SinCosOffset], computeSize);
-            inputQue2.EnQue(sinUb);
+            inputQue2.enqueue(sinUb);
             inputQue2.DeQue<T>();
 
             RopeVF<COMP::rotaryMode>(sinUb, cosUb, normResUb[sliceInfo.loopDealedScCnt * constInfo_.headDim],

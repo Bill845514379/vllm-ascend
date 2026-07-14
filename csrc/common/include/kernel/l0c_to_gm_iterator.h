@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -25,7 +25,7 @@ constexpr uint32_t BLOCK_NUM = 16;
 constexpr uint32_t BLOCK_SIZE_INT8 = 32;
 
 template <>
-struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, half, float> {
+struct l0c_to_gm<archetype::ASCEND_V220, DataFormatT::ND, half, float> {
     /**
      * @brief Copy data from L0C buffer to global memory, partial specialized for
      *
@@ -66,7 +66,7 @@ struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, half, float> {
 };
 
 template <>
-struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, half, int32_t> {
+struct l0c_to_gm<archetype::ASCEND_V220, DataFormatT::ND, half, int32_t> {
     __aicore__ l0c_to_gm(AscendC::GlobalTensor<half> gmTensor,
                          AscendC::LocalTensor<int32_t> l0cTensor,
                          uint32_t mTileActual,
@@ -97,7 +97,7 @@ struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, half, int32_t> {
 };
 
 template <>
-struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, __bf16, float> {
+struct l0c_to_gm<archetype::ASCEND_V220, DataFormatT::ND, __bf16, float> {
     __aicore__ l0c_to_gm(AscendC::GlobalTensor<__bf16> gmTensor,
                          AscendC::LocalTensor<float> l0cTensor,
                          uint32_t mTileActual,
@@ -129,7 +129,7 @@ struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, __bf16, float> {
 
 // Partial specialization ND, float
 template <>
-struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, float, float> {
+struct l0c_to_gm<archetype::ASCEND_V220, DataFormatT::ND, float, float> {
     __aicore__ l0c_to_gm(AscendC::GlobalTensor<float> gmTensor,
                          AscendC::LocalTensor<float> l0cTensor,
                          uint32_t mTileActual,
@@ -160,7 +160,7 @@ struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, float, float> {
 };
 
 template <>
-struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::NZ, half, float> {
+struct l0c_to_gm<archetype::ASCEND_V220, DataFormatT::NZ, half, float> {
     __aicore__ l0c_to_gm(AscendC::GlobalTensor<half> gmTensor,
                          AscendC::LocalTensor<float> l0cTensor,
                          uint32_t mTileActual,
@@ -190,7 +190,7 @@ struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::NZ, half, float> {
 };
 
 template <>
-struct l0c_to_gm<ArchType::ASCEND_V220, DataFormatT::ND, int32_t, int32_t> {
+struct l0c_to_gm<archetype::ASCEND_V220, DataFormatT::ND, int32_t, int32_t> {
     __aicore__ l0c_to_gm(AscendC::GlobalTensor<int32_t> gmTensor,
                          AscendC::LocalTensor<int32_t> l0cTensor,
                          uint32_t mTileActual,

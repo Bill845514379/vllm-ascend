@@ -112,7 +112,7 @@ This is why the effective graph mode on Ascend may differ from the mode requeste
 
 If ACLGraph capture fails because the configured graph sizes exceed the runtime resources available on the current stack, vLLM Ascend now raises a dedicated error with mitigation guidance. In practice, the most useful actions are:
 
-- upgrade to a newer HDK/CANN stack if one is available;
+- upgrade to a newer HDK/CAN stack if one is available;
 - reduce `cudagraph_capture_sizes` or `max_cudagraph_capture_size`;
 - prefer `FULL` or `FULL_DECODE_ONLY` when the workload is mostly uniform decode;
 - temporarily disable graph mode to confirm the issue is capture-related.
@@ -271,7 +271,7 @@ For more details about Xlite, see the [Xlite README](https://atomgit.com/openeul
 
 If you encounter issues with graph mode, you can temporarily fall back to eager mode by setting `enforce_eager=True`.
 
-If ACL graph capture fails with the confirmed stream-resource signature in the error text, such as `207008` together with `Stream resources are insufficient` or `Insufficient_Stream_Resources`, vLLM Ascend will re-raise that capture failure with targeted mitigation guidance. In practice, the main levers are: upgrading to a newer HDK/CANN stack, reducing `cudagraph_capture_sizes`, lowering `max_cudagraph_capture_size`, or preferring `FULL` / `FULL_DECODE_ONLY` when the workload is mostly uniform decode.
+If ACL graph capture fails with the confirmed stream-resource signature in the error text, such as `207008` together with `Stream resources are insufficient` or `Insufficient_Stream_Resources`, vLLM Ascend will re-raise that capture failure with targeted mitigation guidance. In practice, the main levers are: upgrading to a newer HDK/CAN stack, reducing `cudagraph_capture_sizes`, lowering `max_cudagraph_capture_size`, or preferring `FULL` / `FULL_DECODE_ONLY` when the workload is mostly uniform decode.
 
 **Offline example:**
 

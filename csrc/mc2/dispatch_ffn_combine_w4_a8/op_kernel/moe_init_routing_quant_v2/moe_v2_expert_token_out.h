@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -80,7 +80,7 @@ class MoeV2ExpertTokenOut {
 __aicore__ inline void MoeV2ExpertTokenOut::InitLocal() {
   LocalTensor<int32_t> tokenIdxLocal = expertTokenIdxCopyOutQueue.AllocTensor<int32_t>();
   Duplicate<int32_t>(tokenIdxLocal, 0, this->expertNumUbAlign);
-  expertTokenIdxCopyOutQueue.EnQue<int32_t>(tokenIdxLocal);
+  expertTokenIdxCopyOutQueue.enqueue<int32_t>(tokenIdxLocal);
 
   // expandedRowIdx initialized to -1, which is used in the src_to_dst_with_capacity step.
   // use this step SyncAll to synchronize every core data
@@ -108,7 +108,7 @@ __aicore__ inline void MoeV2ExpertTokenOut::InitLocal() {
 __aicore__ inline void MoeV2ExpertTokenOut::CopyIn(int64_t progress) {
   LocalTensor<int32_t> inLocal = copyInQueue.AllocTensor<int32_t>();
   DataCopy(inLocal, expandedExpertIdxGm[progress * perLoopRows], Align(currentLoopRows, sizeof(int32_t)));
-  copyInQueue.EnQue<int32_t>(inLocal);
+  copyInQueue.enqueue<int32_t>(inLocal);
 }
 
 __aicore__ inline void MoeV2ExpertTokenOut::GetExpertTokenCount(int32_t curExpertId) {

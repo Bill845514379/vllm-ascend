@@ -1,5 +1,5 @@
 Version=9.0.0
-version_dir=cann
+version_dir=can
 required_package_runtime_version=">=9.0.0"
 required_package_opbase_version=">=9.0.0"
 required_package_asc-devkit_version=">=9.0.0"

@@ -32,7 +32,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.skipif(True, reason="Fix me, it's broken after CANN and trition-ascend are upgraded.")
+@pytest.mark.skipif(True, reason="Fix me, it's broken after CAN and trition-ascend are upgraded.")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("enforce_eager", [True])

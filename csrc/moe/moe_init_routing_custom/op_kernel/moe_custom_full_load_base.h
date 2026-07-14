@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -163,7 +163,7 @@ __aicore__ inline void MoeCustomFullLoadBase<T>::CopyIn()
     DataCopyPadExtParams<int32_t> dataCopyPadParams{false, 0, 0, 0};
     DataCopyPad(inLocal[0], expertIdxGm_, dataCopyParams, dataCopyPadParams);
     ArithProgression<int32_t>(inLocal[this->sortNum_], 0, 1, totalLength_);
-    sortDataCopyInQueue_.EnQue(inLocal);
+    sortDataCopyInQueue_.enqueue(inLocal);
 }
 
 template <typename T>
@@ -274,8 +274,8 @@ __aicore__ inline void MoeCustomFullLoadBase<T>::SortComputeWithRange()
     expandedExpertIdxLocalInt32 = expandedExpertIdxLocal.ReinterpretCast<int32_t>();
     Cast(expandedExpertIdxLocalInt32, expandedExpertIdxLocal, RoundMode::CAST_ROUND, actual_idx_num_);
     PipeBarrier<PIPE_V>();
-    expandedExpertIdxCopyOutQueue_.EnQue<int32_t>(expandedExpertIdxLocalInt32);
-    expandDstToSrcRowQueue_.EnQue<uint32_t>(expandDstToSrcRowLocal);
+    expandedExpertIdxCopyOutQueue_.enqueue<int32_t>(expandedExpertIdxLocalInt32);
+    expandDstToSrcRowQueue_.enqueue<uint32_t>(expandDstToSrcRowLocal);
     sortDataCopyInQueue_.FreeTensor(inLocal);
 }
 
@@ -350,9 +350,9 @@ __aicore__ inline void MoeCustomFullLoadBase<T>::SortCompute()
         Cast(expandDstToSrcRowLocal.ReinterpretCast<int32_t>(), expandDstToSrcRowLocalFp32, RoundMode::CAST_RINT,
              totalLength_);
     }
-    expandedExpertIdxCopyOutQueue_.EnQue<int32_t>(expandedExpertIdxLocalInt32);
-    expandedRowIdxCopyOutQueue_.EnQue<uint32_t>(expandedRowIdx);
-    expandDstToSrcRowQueue_.EnQue<uint32_t>(expandDstToSrcRowLocal);
+    expandedExpertIdxCopyOutQueue_.enqueue<int32_t>(expandedExpertIdxLocalInt32);
+    expandedRowIdxCopyOutQueue_.enqueue<uint32_t>(expandedRowIdx);
+    expandDstToSrcRowQueue_.enqueue<uint32_t>(expandDstToSrcRowLocal);
     sortDataCopyInQueue_.FreeTensor(inLocal);
 }
 
@@ -412,10 +412,10 @@ __aicore__ inline void MoeCustomFullLoadBase<T>::CopyOutIdx()
         DataCopyExtParams copyParams{static_cast<uint16_t>(1), static_cast<uint32_t>(totalLength_ * sizeof(int32_t)), 0,
                                      0, 0};
         DataCopyPad(expandedRowIdxGm_, expandedRowIdx, copyParams);
-        expandedRowIdxCopyOutQueue_.EnQue(expandedRowIdx);
+        expandedRowIdxCopyOutQueue_.enqueue(expandedRowIdx);
     }
-    expandedExpertIdxCopyOutQueue_.EnQue<int32_t>(expandedExpertIdx);
-    expandDstToSrcRowQueue_.EnQue<int32_t>(expandDstToSrcRowLocal);
+    expandedExpertIdxCopyOutQueue_.enqueue<int32_t>(expandedExpertIdx);
+    expandDstToSrcRowQueue_.enqueue<int32_t>(expandDstToSrcRowLocal);
 }
 
 template <typename T>
@@ -482,7 +482,7 @@ __aicore__ inline void MoeCustomFullLoadBase<T>::ComputeExpertTokenCountOrCumsum
             }
         }
     }
-    expandedExpertIdxCopyOutQueue_.EnQue<int32_t>(expandedExpertIdx);
+    expandedExpertIdxCopyOutQueue_.enqueue<int32_t>(expandedExpertIdx);
     SetWaitFlag<HardEvent::S_MTE3>(HardEvent::S_MTE3);
     DataCopyExtParams copyParams{static_cast<uint16_t>(1),
                                  static_cast<uint32_t>(expertCountElements_ * sizeof(int64_t)), 0, 0, 0};

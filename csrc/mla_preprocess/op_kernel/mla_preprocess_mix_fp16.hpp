@@ -2,8 +2,8 @@
 //   https://gitee.com/ascend/ascend-transformer-boost
 //
 // Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-// This file is a part of the CANN Open Software.
-// Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+// This file is a part of the CAN Open Software.
+// Licensed under CAN Open Software License Agreement Version 1.0 (the "License").
 // Please refer to the License for details. You may not use this file except in compliance with the License.
 // THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 // INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -217,7 +217,7 @@ public:
     }
 
 private:
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
 
     AscendC::GlobalTensor<QkDtype> qGm_;
     AscendC::GlobalTensor<CosDtype> cosGm_;
@@ -282,7 +282,7 @@ __aicore__ inline void ReduceSumCustom(const AscendC::LocalTensor<float> &dst_lo
         AscendC::PipeBarrier<PIPE_V>();
     }
     AscendC::AscendCUtils::SetMask<float>(NUM_PER_REP_FP32);
-    cadd_v<ArchType::ASCEND_V220, float>(dst_local,   // dst
+    cadd_v<archetype::ASCEND_V220, float>(dst_local,   // dst
                                          work_local,  // src
                                          1,           // repeat
                                          0,           // dstRepeatStride
@@ -841,7 +841,7 @@ public:
     }
 
 private:
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
 
     AscendC::GlobalTensor<InDtype> einSumOutGm_;
     AscendC::GlobalTensor<ScaleDtype> scaleGm_;
@@ -895,11 +895,11 @@ class PpMatmulEinSum
     using AccumDtype = float;
 
     template <DataFormat srcFormat, DataFormat dstFormat>
-    using CopyGmToCbuf = gm_to_l1<ArchType::ASCEND_V220, InDtype, srcFormat, dstFormat>;
-    using LoadCbufToCa = l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
-    using LoadCbufToCb = l1_to_l0_b<ArchType::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
-    using Mad = mmad<ArchType::ASCEND_V220, InDtype, InDtype, float, false>;
-    using CopyCcToGm = l0c_to_gm<ArchType::ASCEND_V220, DataFormat::ND, OutDtype, float>;
+    using CopyGmToCbuf = gm_to_l1<archetype::ASCEND_V220, InDtype, srcFormat, dstFormat>;
+    using LoadCbufToCa = l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::ZN, DataFormat::ZZ>;
+    using LoadCbufToCb = l1_to_l0_b<archetype::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
+    using Mad = mmad<archetype::ASCEND_V220, InDtype, InDtype, float, false>;
+    using CopyCcToGm = l0c_to_gm<archetype::ASCEND_V220, DataFormat::ND, OutDtype, float>;
 
     static constexpr uint32_t L0_PINGPONG_BUFFER_LEN = 16384;
     static constexpr uint32_t L1_PINGPONG_BUFFER_LEN = 131072;
@@ -976,7 +976,7 @@ __aicore__ __force_inline__ void PpMatmulEinSum<formatB, transB, swizzleDirect, 
     gm_b.SetGlobalBuffer(reinterpret_cast<__gm__ InDtype *>(gmB));
     gm_c.SetGlobalBuffer(reinterpret_cast<__gm__ OutDtype *>(gmC));
 
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
     l1_base_a = buf.template GetBuffer<BufferType::ASCEND_CB>(0);
     l1_base_b = buf.template GetBuffer<BufferType::ASCEND_CB>(RoundUp<CONST_256>(m0 * k0 * sizeof(InDtype)));
     l0a_base = buf.template GetBuffer<BufferType::ASCEND_L0A>(0);
@@ -1269,7 +1269,7 @@ __aicore__ __force_inline__ void PpMatmulEinSum<formatB, transB, swizzleDirect, 
                 }
                 WAIT_FLAG(M, MTE1, mte1_mad_event_id);
                 if ((m == 1) || (m_actual == 1)) {
-                    l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
+                    l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
                         l0a_buf,                        // dst
                         l1_buf_a[fidx.k * k_part_len],  // src
                         0,                              // mTileCeil
@@ -1376,11 +1376,11 @@ class PpMatmulW8a8
     using ScaleDtype = uint64_t;
 
     template <DataFormat srcFormat, DataFormat dstFormat>
-    using CopyGmToCbuf = gm_to_l1<ArchType::ASCEND_V220, InDtype, srcFormat, dstFormat>;
-    using LoadCbufToCa = l1_to_l0_a<ArchType::ASCEND_V220, InDtype, transA, DataFormat::ZN, DataFormat::ZZ>;
-    using LoadCbufToCb = l1_to_l0_b<ArchType::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
-    using Mmad = mmad<ArchType::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
-    using CopyCcToGm = l0c_to_gm<ArchType::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
+    using CopyGmToCbuf = gm_to_l1<archetype::ASCEND_V220, InDtype, srcFormat, dstFormat>;
+    using LoadCbufToCa = l1_to_l0_a<archetype::ASCEND_V220, InDtype, transA, DataFormat::ZN, DataFormat::ZZ>;
+    using LoadCbufToCb = l1_to_l0_b<archetype::ASCEND_V220, InDtype, transB, DataFormat::ZN, DataFormat::NZ>;
+    using Mmad = mmad<archetype::ASCEND_V220, InDtype, InDtype, AccumDtype, false>;
+    using CopyCcToGm = l0c_to_gm<archetype::ASCEND_V220, DataFormat::ND, OutDtype, AccumDtype>;
 
     static constexpr uint64_t L0_PINGPONG_BUFFER_LEN = 32768;
     static constexpr uint64_t L1_PINGPONG_BUFFER_LEN = 262144;
@@ -1624,7 +1624,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8<transA, transB, withBias, swizzleD
 template <bool transA, bool transB, bool withBias, uint32_t swizzleDir, DataFormat formatA, DataFormat formatB>
 __aicore__ __force_inline__ void PpMatmulW8a8<transA, transB, withBias, swizzleDir, formatA, formatB>::InitBuffer()
 {
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
     l1_base_a = buf.template GetBuffer<BufferType::ASCEND_CB, InDtype>(SCALE_L1_LEN + BIAS_L1_LEN);
 
     // try load all A matrix
@@ -1775,7 +1775,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8<transA, transB, withBias, swizzleD
         auto event_id = ping_flag ? EVENT_ID0 : EVENT_ID1;
         if constexpr (withBias) {
             WAIT_FLAG(MTE1, MTE2, EVENT_ID7);
-            gm_to_l1<ArchType::ASCEND_V220, BiasDtype, DataFormat::ND, DataFormat::ND>(bias_l1,               // dst
+            gm_to_l1<archetype::ASCEND_V220, BiasDtype, DataFormat::ND, DataFormat::ND>(bias_l1,               // dst
                                                                                        gm_bias[offset_bias],  // src
                                                                                        1, BLOCK_SIZE_16, 1, n_actual,
                                                                                        n_round, n);
@@ -1816,13 +1816,13 @@ __aicore__ __force_inline__ void PpMatmulW8a8<transA, transB, withBias, swizzleD
         SET_FLAG(MTE2, MTE1, event_id + CONST_2);
 
         WAIT_FLAG(FIX, MTE2, EVENT_ID0);
-        gm_to_l1<ArchType::ASCEND_V220, ScaleDtype, DataFormat::ND, DataFormat::ND>(scale_l1,                   // dst
+        gm_to_l1<archetype::ASCEND_V220, ScaleDtype, DataFormat::ND, DataFormat::ND>(scale_l1,                   // dst
                                                                                     gm_descale[offset_scalar],  // src
                                                                                     1, BLOCK_SIZE_16, 1, n_actual,
                                                                                     n_round, n);
         SET_FLAG(MTE2, FIX, EVENT_ID0);
         WAIT_FLAG(MTE2, FIX, EVENT_ID0);
-        l1_to_fb<ArchType::ASCEND_V220, ScaleDtype>(scale_fb,                                           // dst
+        l1_to_fb<archetype::ASCEND_V220, ScaleDtype>(scale_fb,                                           // dst
                                                     scale_l1,                                           // src
                                                     1,                                                  // nBurst
                                                     CeilDiv<CONST_128>(n_actual * sizeof(ScaleDtype)),  // lenBurst
@@ -1884,7 +1884,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8<transA, transB, withBias, swizzleD
                 }
                 WAIT_FLAG(M, MTE1, mte1_mad_event_id);
                 if ((m == 1) || (m_actual == 1 && !transA)) {
-                    l1_to_l0_a<ArchType::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
+                    l1_to_l0_a<archetype::ASCEND_V220, InDtype, false, DataFormat::VECTOR, DataFormat::VECTOR>(
                         l0a_buf, l1_buf_a[k_part_idx * k_part_len],
                         0,                                        // mTileCeil
                         CeilDiv<CUBE_MATRIX_SIZE_512>(k0_round),  // kPartCeil
@@ -1955,7 +1955,7 @@ __aicore__ __force_inline__ void PpMatmulW8a8<transA, transB, withBias, swizzleD
                 if (init_c) {
                     if constexpr (withBias) {
                         WAIT_FLAG(MTE2, MTE1, EVENT_ID6);
-                        l1_to_bt<ArchType::ASCEND_V220, BiasDtype>(
+                        l1_to_bt<archetype::ASCEND_V220, BiasDtype>(
                             bias_bt,                                          // dst
                             bias_l1,                                          // src
                             0,                                                // convControl
@@ -2332,7 +2332,7 @@ private:
     uint32_t row_work;
     uint32_t row_work_;
 
-    AsdopsBuffer<ArchType::ASCEND_V220> buf;
+    AsdopsBuffer<archetype::ASCEND_V220> buf;
     AscendC::LocalTensor<half> ubTensor;
     AscendC::LocalTensor<int8_t> ub8Tensor;
     AscendC::LocalTensor<float> ub32Tensor;

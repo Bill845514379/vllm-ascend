@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -25,7 +25,7 @@
 /////////////////////////////////////////////////////
 // gm_to_l1
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType, DataFormatT FormatInGM, DataFormatT FormatInL1>
+template <archetype ArchTag, typename DataType, DataFormatT FormatInGM, DataFormatT FormatInL1>
 struct gm_to_l1 {
     __aicore__ gm_to_l1(AscendC::LocalTensor<DataType> l1Tensor,
                         AscendC::GlobalTensor<DataType> gmTensor,
@@ -40,7 +40,7 @@ struct gm_to_l1 {
 /////////////////////////////////////////////////////
 // l1_to_l0_a
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType, bool IsTransPose, DataFormatT DFmtIn, DataFormatT DFmtOut>
+template <archetype ArchTag, typename DataType, bool IsTransPose, DataFormatT DFmtIn, DataFormatT DFmtOut>
 struct l1_to_l0_a {
     __aicore__ l1_to_l0_a(AscendC::LocalTensor<DataType> l0Tensor,
                           AscendC::LocalTensor<DataType> l1Tensor,
@@ -55,7 +55,7 @@ struct l1_to_l0_a {
 /////////////////////////////////////////////////////
 // l1_to_l0_b
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType, bool IsTransPose, DataFormatT DFmtIn, DataFormatT DFmtOut>
+template <archetype ArchTag, typename DataType, bool IsTransPose, DataFormatT DFmtIn, DataFormatT DFmtOut>
 struct l1_to_l0_b {
     __aicore__ l1_to_l0_b(AscendC::LocalTensor<DataType> l0Tensor,
                           AscendC::LocalTensor<DataType> l1Tensor,
@@ -69,7 +69,7 @@ struct l1_to_l0_b {
 
 // l1_to_l0_a
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType, bool IsTransPose, bool IsVectore>
+template <archetype ArchTag, typename DataType, bool IsTransPose, bool IsVectore>
 struct l1_to_l0_a_v1 {
     __aicore__ l1_to_l0_a_v1(AscendC::LocalTensor<DataType> l0_tensor,
                              AscendC::LocalTensor<DataType> l1_tensor,
@@ -83,7 +83,7 @@ struct l1_to_l0_a_v1 {
 /////////////////////////////////////////////////////
 // l1_to_l0_b
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, typename DataType, bool IsTransPose, bool IsVectore>
+template <archetype ArchTag, typename DataType, bool IsTransPose, bool IsVectore>
 struct l1_to_l0_b_v1 {
     __aicore__ l1_to_l0_b_v1(AscendC::LocalTensor<DataType> l0_tensor,
                              AscendC::LocalTensor<DataType> l1_tensor,
@@ -96,7 +96,7 @@ struct l1_to_l0_b_v1 {
 /////////////////////////////////////////////////////
 // l0c_to_gm
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, DataFormatT OutFormatType, typename OutDataType, typename L0CDataType>
+template <archetype ArchTag, DataFormatT OutFormatType, typename OutDataType, typename L0CDataType>
 struct l0c_to_gm {
     __aicore__ l0c_to_gm(AscendC::GlobalTensor<OutDataType> gmTensor,
                          AscendC::LocalTensor<L0CDataType> l0cTensor,
@@ -109,7 +109,7 @@ struct l0c_to_gm {
 /////////////////////////////////////////////////////
 // l0c_to_l1
 /////////////////////////////////////////////////////
-template <ArchType ArchTag, DataFormatT LayoutOut, typename ElementOut, typename ElementIn>
+template <archetype ArchTag, DataFormatT LayoutOut, typename ElementOut, typename ElementIn>
 struct l0c_to_l1 {
     __aicore__ l0c_to_l1(AscendC::LocalTensor<ElementOut> l1Tensor,
                          AscendC::LocalTensor<ElementIn> l0cTensor,

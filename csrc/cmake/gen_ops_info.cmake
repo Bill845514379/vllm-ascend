@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CAN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 ###################################################################################################
-# copy kernel src to tbe/ascendc path
+# copy kernel src to the/ascendc path
 ###################################################################################################
 function(kernel_src_copy)
   set(oneValueArgs TARGET DST_DIR)
@@ -41,8 +41,8 @@ function(kernel_src_copy)
 endfunction()
 
 ###################################################################################################
-# generate operator dynamic python script for compile, generenate out path ${CMAKE_BINARY_DIR}/tbe,
-# and install to packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/${VENDOR_NAME}_impl/dynamic
+# generate operator dynamic python script for compile, generenate out path ${CMAKE_BINARY_DIR}/the,
+# and install to packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/${VENDOR_NAME}_impl/dynamic
 ###################################################################################################
 function(add_ops_impl_target)
   set(oneValueArgs TARGET OPS_INFO_DIR IMPL_DIR OUT_DIR INSTALL_DIR)
@@ -74,8 +74,8 @@ endfunction()
 
 ###################################################################################################
 # generate aic-${compute_unit}-ops-info.json from aic-${compute_unit}-ops-info.ini
-# generate outpath: ${CMAKE_BINARY_DIR}/tbe/op_info_cfg/ai_core/${compute_unit}/
-# install path: packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/config/${compute_unit}
+# generate outpath: ${CMAKE_BINARY_DIR}/the/op_info_cfg/ai_core/${compute_unit}/
+# install path: packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/config/${compute_unit}
 ###################################################################################################
 function(add_ops_info_target)
   set(oneValueArgs TARGET OPS_INFO_DIR COMPUTE_UNIT OUTPUT INSTALL_DIR)
@@ -103,7 +103,7 @@ endfunction()
 ###################################################################################################
 # merge ops info ini in aclnn/aclnn_inner/aclnn_exc to a total ini file
 # srcpath: ${ASCEND_AUTOGEN_PATH}
-# generate outpath: ${CMAKE_BINARY_DIR}/tbe/config
+# generate outpath: ${CMAKE_BINARY_DIR}/the/config
 ###################################################################################################
 function(merge_ini_files)
   set(oneValueArgs TARGET OPS_INFO_DIR COMPUTE_UNIT)
@@ -124,7 +124,7 @@ endfunction()
 # ##################################################################################################
 # merge ops proto headers in aclnn/aclnn_inner/aclnn_exc to a total proto file
 # srcpath: ${ASCEND_AUTOGEN_PATH}
-# generate outpath: ${CMAKE_BINARY_DIR}/tbe/graph
+# generate outpath: ${CMAKE_BINARY_DIR}/the/graph
 # ##################################################################################################
 function(merge_graph_headers)
   set(oneValueArgs TARGET OUT_DIR)
@@ -176,7 +176,7 @@ function(generate_bin_scripts)
 endfunction()
 
 ###################################################################################################
-# copy binary config from op_host/config to tbe/config path
+# copy binary config from op_host/config to the/config path
 ###################################################################################################
 function(binary_config_copy)
   set(oneValueArgs TARGET OP_NAME CONF_DIR DST_DIR COMPUTE_UNIT)
@@ -208,7 +208,7 @@ function(compile_from_config)
   if(${CMAKE_CXX_COMPILER_LAUNCHER} MATCHES "ccache$")
     list(APPEND _ASCENDC_ENV_VAR export ASCENDC_CCACHE_EXECUTABLE=${CMAKE_CXX_COMPILER_LAUNCHER} &&)
   endif()
-  # copy binary config file to tbe/config
+  # copy binary config file to the/config
   binary_config_copy(
     TARGET bin_conf_${CONFCMP_OP_NAME}_${CONFCMP_COMPUTE_UNIT}_copy
     OP_NAME ${CONFCMP_OP_NAME}
@@ -250,7 +250,7 @@ endfunction()
 ###################################################################################################
 # generate binary_info_config.json
 # generate outpath: ${CMAKE_BINARY_DIR}/binary/${compute_unit}/bin/config
-# install path: packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/tbe/kernel/config
+# install path: packages/vendors/${VENDOR_NAME}_transformer/op_impl/ai_core/the/kernel/config
 ###################################################################################################
 function(gen_binary_info_config_json)
   set(oneValueArgs TARGET BIN_DIR COMPUTE_UNIT)
@@ -298,7 +298,7 @@ function(gen_ops_info_and_python)
     TARGET ascendc_impl_gen
     OPS_INFO_DIR ${ASCEND_AUTOGEN_PATH}
     IMPL_DIR ${ASCEND_KERNEL_SRC_DST}
-    OUT_DIR ${CMAKE_BINARY_DIR}/tbe
+    OUT_DIR ${CMAKE_BINARY_DIR}/the
     INSTALL_DIR ${IMPL_DYNAMIC_INSTALL_DIR}
   )
 
@@ -312,7 +312,7 @@ function(gen_ops_info_and_python)
     # generate aic-${compute_unit}-ops-info.json, operator infos
     add_ops_info_target(
       TARGET ops_info_gen_${compute_unit}
-      OUTPUT ${CMAKE_BINARY_DIR}/tbe/op_info_cfg/ai_core/${compute_unit}/aic-${compute_unit}-ops-info.json
+      OUTPUT ${CMAKE_BINARY_DIR}/the/op_info_cfg/ai_core/${compute_unit}/aic-${compute_unit}-ops-info.json
       OPS_INFO_DIR ${ASCEND_AUTOGEN_PATH}
       COMPUTE_UNIT ${compute_unit}
       INSTALL_DIR ${OPS_INFO_INSTALL_DIR}
@@ -348,7 +348,7 @@ function(gen_ops_info_and_python)
             OPS_INFO_DIR ${ASCEND_AUTOGEN_PATH}
             IMPL_DIR ${OP_DIR}/op_kernel
             CONFIG_DIR ${OP_DIR}/op_host/config
-            OP_PYTHON_DIR ${CMAKE_BINARY_DIR}/tbe/dynamic
+            OP_PYTHON_DIR ${CMAKE_BINARY_DIR}/the/dynamic
             OUT_DIR ${CMAKE_BINARY_DIR}/binary/${compute_unit}
             INSTALL_DIR ${BIN_KERNEL_INSTALL_DIR}
             COMPUTE_UNIT ${compute_unit}

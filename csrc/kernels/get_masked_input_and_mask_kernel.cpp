@@ -85,7 +85,7 @@ private:
     {
         AscendC::LocalTensor<scalar_t> inputLocal = inQueue.AllocTensor<scalar_t>();
         AscendC::DataCopy(inputLocal, inputGlobal, size_);
-        inQueue.EnQue(inputLocal);
+        inQueue.enqueue(inputLocal);
     }
 
     __aicore__ inline void CompareWithValue(
@@ -254,7 +254,7 @@ private:
         AscendC::Mul(inputFloat, inputFloat, vocabMask_fp32, size_);
 
         AscendC::Cast(maskedLocal, inputFloat, AscendC::RoundMode::CAST_CEIL, size_);  
-        outQueue.EnQue(maskedLocal);
+        outQueue.enqueue(maskedLocal);
 
         AscendC::LocalTensor<float> ones_tensor = ones_buf_.Get<float>();
         AscendC::Duplicate(ones_tensor, (float)1, size_);
@@ -265,7 +265,7 @@ private:
         AscendC::LocalTensor<half> maskLocal_fp16;
         AscendC::Cast(maskLocal_fp16, maskLocal_fp32, AscendC::RoundMode::CAST_NONE, size_);
         AscendC::Cast(maskLocal, maskLocal_fp16, AscendC::RoundMode::CAST_NONE, size_);
-        maskQueue.EnQue(maskLocal);
+        maskQueue.enqueue(maskLocal);
         inQueue.FreeTensor(inputLocal);
     }
 

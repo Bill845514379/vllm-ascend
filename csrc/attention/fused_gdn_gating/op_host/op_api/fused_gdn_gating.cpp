@@ -26,12 +26,12 @@ OP_TYPE_REGISTER(FusedGdnGating);
 
 static constexpr FusedGdnGatingOutput kNullOutput{nullptr, nullptr};
 
-FusedGdnGatingOutput FusedGdnGating(const aclTensor *aLog, const aclTensor *a,
+FusedGdnGatingOutput FusedGdnGating(const aclTensor *along, const aclTensor *a,
                                     const aclTensor *b, const aclTensor *dtBias,
                                     float beta, float threshold,
                                     aclOpExecutor *executor)
 {
-    L0_DFX(FusedGdnGating, aLog, a, b, dtBias, beta, threshold);
+    L0_DFX(FusedGdnGating, along, a, b, dtBias, beta, threshold);
 
     const DataType betaDtype = b->GetDataType();
     const Format format = Format::FORMAT_ND;
@@ -46,14 +46,14 @@ FusedGdnGatingOutput FusedGdnGating(const aclTensor *aLog, const aclTensor *a,
              return kNullOutput);
 
     auto ret = INFER_SHAPE(FusedGdnGating,
-                           OP_INPUT(aLog, a, b, dtBias),
+                           OP_INPUT(along, a, b, dtBias),
                            OP_OUTPUT(g, betaOutput),
                            OP_ATTR(beta, threshold));
     OP_CHECK_INFERSHAPE(ret != ACLNN_SUCCESS, return kNullOutput,
                         "FusedGdnGating InferShape failed.");
 
     ret = ADD_TO_LAUNCHER_LIST_AICORE(FusedGdnGating,
-                                      OP_INPUT(aLog, a, b, dtBias),
+                                      OP_INPUT(along, a, b, dtBias),
                                       OP_OUTPUT(g, betaOutput),
                                       OP_ATTR(beta, threshold));
     OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(ret != ACLNN_SUCCESS, return kNullOutput,

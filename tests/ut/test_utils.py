@@ -111,7 +111,7 @@ class TestUtils(TestBase):
         output_tensor = utils.aligned_16(input_tensor)
         self.assertEqual(output_tensor.shape[0], 32)
 
-    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CANN 8.5.0.")
+    @pytest.mark.skip("Skip as register_kernels has NPU SocName checking in CAN 8.5.0.")
     def test_enable_custom_op(self):
         result = utils.enable_custom_op()
         self.assertTrue(result)
@@ -125,9 +125,9 @@ class TestUtils(TestBase):
     def test_find_hccl_library(self):
         with mock.patch.dict(os.environ, {"HCCL_SO_PATH": "/path/to/hccl/libhccl.so"}):
             self.assertEqual(utils.find_hccl_library(), "/path/to/hccl/libhccl.so")
-        with mock.patch("torch.version.cann", None):
+        with mock.patch("torch.version.can", None):
             self.assertRaises(ValueError, utils.find_hccl_library)
-        with mock.patch("torch.version.cann", "Ascend910"):
+        with mock.patch("torch.version.can", "Ascend910"):
             self.assertEqual(utils.find_hccl_library(), "libhccl.so")
 
     def test_current_stream(self):

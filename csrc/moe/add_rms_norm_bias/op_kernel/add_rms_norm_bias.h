@@ -1,8 +1,8 @@
 /**
  * This program is free software, you can redistribute it and/or modify.
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * This file is a part of the CAN Open Software.
+ * Licensed under CAN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
@@ -102,7 +102,7 @@ public:
             Compute(i_i, gammaLocal, betaLocal, rstdLocal);
             CopyOutY(gm_bias);
         }
-        outQueueRstd.EnQue<float>(rstdLocal);
+        outQueueRstd.enqueue<float>(rstdLocal);
         CopyOutRstd(i_o, calc_row_num);
     }
 
@@ -119,7 +119,7 @@ private:
 
         DataCopyCustom<T>(x1Local_in, x1Gm[gm_bias], numCol);
         DataCopyCustom<T>(x2Local, x2Gm[gm_bias], numCol);
-        inQueueX.EnQue(x1Local_in);
+        inQueueX.enqueue(x1Local_in);
         auto x1Local = inQueueX.DeQue<T>();
 
         if constexpr (is_same<T, half>::value) {
@@ -146,7 +146,7 @@ private:
         inQueueX.FreeTensor(x1Local);
 
         // CopyOut x1 + x2
-        outQueueY.EnQue(xLocal);
+        outQueueY.enqueue(xLocal);
         auto x_out = outQueueY.DeQue<T>();
         DataCopyCustom<T>(xGm[gm_bias], x_out, numCol);
         outQueueY.FreeTensor(x_out);
@@ -156,11 +156,11 @@ private:
     {
         LocalTensor<T> gammaLocal = inQueueGamma.AllocTensor<T>();
         DataCopyCustom<T>(gammaLocal, gammaGm, numCol);
-        inQueueGamma.EnQue(gammaLocal);
+        inQueueGamma.enqueue(gammaLocal);
         if (!this->nullptrBeta) {
             LocalTensor<T> betaLocal = inQueueBeta.AllocTensor<T>();
             DataCopyCustom<T>(betaLocal, betaGm, numCol);
-            inQueueBeta.EnQue(betaLocal);
+            inQueueBeta.enqueue(betaLocal);
         }
     }
 
@@ -204,7 +204,7 @@ private:
             Add(yLocal, betaLocal, yLocal, numCol);
         }
         PipeBarrier<PIPE_V>();
-        outQueueY.EnQue<float>(yLocal);
+        outQueueY.enqueue<float>(yLocal);
     }
 
     __aicore__ inline void Compute(
@@ -263,7 +263,7 @@ private:
         SetFlag<HardEvent::V_MTE2>(event_v_mte);
         WaitFlag<HardEvent::V_MTE2>(event_v_mte);
 
-        outQueueY.EnQue<bfloat16_t>(yLocal);
+        outQueueY.enqueue<bfloat16_t>(yLocal);
     }
 
     __aicore__ inline void Compute(uint32_t inner_progress, LocalTensor<half> gammaLocal, LocalTensor<half> betaLocal, LocalTensor<float> rstdLocal)
@@ -314,7 +314,7 @@ private:
             Add(yLocal, betaLocal, yLocal, numCol);
         }
         PipeBarrier<PIPE_V>();
-        outQueueY.EnQue<half>(yLocal);
+        outQueueY.enqueue<half>(yLocal);
     }
 
     __aicore__ inline void CopyOutY(uint32_t progress)

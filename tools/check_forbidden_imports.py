@@ -61,7 +61,7 @@ CHECK_IMPORTS = {
         pattern=r"^(from|import)\s+triton(\s|\.|$)",
         tip=("Use 'from vllm.triton_utils import triton'/'tl'."),
         allowed_pattern=re.compile(
-            r"^\s*import\s+triton\.language\.extra\.cann\.extension\s+as\s+_extension_module(\s+#.*)?$"
+            r"^\s*import\s+triton\.language\.extra\.can\.extension\s+as\s+_extension_module(\s+#.*)?$"
         ),
     ),
 }

@@ -271,8 +271,11 @@
       "xlangai/OpenCUA-7B",
       "Eco-Tech/GLM-5-w4a8",
       "Eco-Tech/GLM-4.7-W8A8-floatmtp",
+      "Inferact/MiniMax-M3-EAGLE3",
+      "MiniMax/MiniMax-M3",
       "MiniMax/MiniMax-M2.5",
       "Eco-Tech/Qwen3.5-27B-w8a8-mtp",
+      "Eco-Tech/MiniMax-M3-w8a8",
       "Eco-Tech/MiniMax-M2.5-w8a8-QuaRot",
       "vllm-ascend/MiniMax-M2.5-eagle-model-0318",
       "Eco-Tech/Qwen3.5-397B-A17B-w8a8-mtp",
@@ -287,7 +290,9 @@
       "vllm-ascend/Qwen3-14B-w8a8sc-310-vllm-tp1",
       "vllm-ascend/Qwen3-32B-w8a8sc-310-vllm-tp4",
       "Eco-Tech/DeepSeek-V4-Flash-w8a8-mtp",
-      "Eco-Tech/DeepSeek-V3.1-Terminus-w8a8-mtp-QuaRot"
+      "Eco-Tech/DeepSeek-V3.1-Terminus-w8a8-mtp-QuaRot",
+      "Eco-Tech/Kimi-K2.6-w4a8",
+      "lightseekorg/kimi-k2.6-eagle3"
     ],
     "datasets": [
       "vllm-ascend/GSM8K-in1024-bs210",

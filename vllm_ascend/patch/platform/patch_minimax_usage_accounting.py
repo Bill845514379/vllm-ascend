@@ -29,7 +29,10 @@ from vllm.entrypoints.openai.chat_completion import protocol as chat_protocol
 from vllm.entrypoints.openai.chat_completion import serving as chat_serving
 from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
 from vllm.entrypoints.openai.engine import protocol as engine_protocol
+from vllm.logger import logger
 from vllm.reasoning import minimax_m2_reasoning_parser as minimax_parser
+
+from vllm_ascend import envs
 
 _MINIMAX_REASONING_PARSER_TYPES = (
     minimax_parser.MiniMaxM2ReasoningParser,
@@ -90,6 +93,48 @@ def _patched_count_reasoning_tokens(self, token_ids: Sequence[int]) -> int:
 
 minimax_parser.MiniMaxM2ReasoningParser.count_reasoning_tokens = _patched_count_reasoning_tokens
 minimax_parser.MiniMaxM2AppendThinkReasoningParser.count_reasoning_tokens = _patched_count_reasoning_tokens
+
+
+def _serialize_chat_payload(payload: Any) -> str:
+    if isinstance(payload, str):
+        return payload
+
+    if hasattr(payload, "model_dump"):
+        payload = payload.model_dump(mode="json", exclude_none=True)
+    elif hasattr(payload, "dict"):
+        payload = payload.dict(exclude_none=True)
+
+    return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _log_chat_completion_request(
+    request_id: str,
+    model_name: str,
+    request: chat_protocol.ChatCompletionRequest,
+) -> None:
+    if not envs.VLLM_ASCEND_LOG_CHAT_COMPLETIONS:
+        return
+    logger.info(
+        "Chat completion request. request_id=%s, model=%s, payload=%s",
+        request_id,
+        model_name,
+        _serialize_chat_payload(request),
+    )
+
+
+def _log_chat_completion_response(
+    request_id: str,
+    model_name: str,
+    response: Any,
+) -> None:
+    if not envs.VLLM_ASCEND_LOG_CHAT_COMPLETIONS:
+        return
+    logger.info(
+        "Chat completion response. request_id=%s, model=%s, payload=%s",
+        request_id,
+        model_name,
+        _serialize_chat_payload(response),
+    )
 
 
 def _count_minimax_reasoning_tokens_for_usage(
@@ -338,6 +383,7 @@ async def _wrapped_chat_completion_stream_generator(
     **extra_kwargs: Any,
 ):
     original_stream_generator = self._ascend_original_chat_completion_stream_generator
+    _log_chat_completion_request(request_id, model_name, request)
     num_choices = 1 if request.n is None else request.n
     state = _create_usage_tracking_state(
         num_choices,
@@ -356,7 +402,9 @@ async def _wrapped_chat_completion_stream_generator(
         reasoning_parser,
         **extra_kwargs,
     ):
-        yield _inject_stream_usage_details(data, state)
+        response = _inject_stream_usage_details(data, state)
+        _log_chat_completion_response(request_id, model_name, response)
+        yield response
 
     usage = _make_full_response_usage(self, state)
     if usage is not None:
@@ -375,6 +423,7 @@ async def _wrapped_chat_completion_full_generator(
     reasoning_parser=None,
 ):
     original_full_generator = self._ascend_original_chat_completion_full_generator
+    _log_chat_completion_request(request_id, model_name, request)
     num_choices = 1 if request.n is None else request.n
     state = _create_usage_tracking_state(
         num_choices,
@@ -394,14 +443,17 @@ async def _wrapped_chat_completion_full_generator(
     )
 
     if not isinstance(response, chat_protocol.ChatCompletionResponse):
+        _log_chat_completion_response(request_id, model_name, response)
         return response
 
     usage = _make_full_response_usage(self, state)
     if usage is None:
+        _log_chat_completion_response(request_id, model_name, response)
         return response
 
     response.usage = usage
     request_metadata.final_usage_info = usage
+    _log_chat_completion_response(request_id, model_name, response)
     return response
 
 
